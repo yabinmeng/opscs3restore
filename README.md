@@ -44,4 +44,5 @@ In many cases, when there is NO DSE cluster topology change, a much faster appro
 1) Simply copy the backup data to its corresponding DSE node, under the right C* keyspace/table (file system) folder
 2) Once the data is copied, run "nodetool refresh" command to pick up the data-to-be-retored in DSE cluster.
 
-# 
+# Soltion Overview
+
