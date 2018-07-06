@@ -51,6 +51,10 @@ The second step of this approach is very straightforward. But when it comes to t
 
 It also contains an example bash script file that covers the whole (2 steps) procedure of this approach - downloading backup data from S3 to a local directory; and run "nodetool refresh" to restore data into DSE cluster.
 
-## Usage Description
+## 2.2. Usage Description for
+
+### 2.2.1. Fast S3 Backup Data Downloading
+
+1. Download the release .jar file: https://github.com/yabinmeng/opscs3restore/releases/download/1.0/DseAWSRestore-1.0-SNAPSHOT.jar
 
 
