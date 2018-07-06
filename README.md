@@ -1,4 +1,4 @@
-# Overview
+# Background and Problem Overview
 
 DataStax OpsCenter simplifies the task of backup and restore of data out of a DSE (DataStax Enterprise) clusster a lot through its out-of-the-box feature of [Backup Service](https://docs.datastax.com/en/opscenter/6.5/opsc/online_help/services/opscBackupService.html). Through this service, a user can choose to bakup DSE data to multiple locations, including AWS S3, which becomes a more and more popular choice in today's ever-increasing cloud environment.
 
@@ -40,8 +40,8 @@ This approach has pros an cons:
 - The biggest pro is that it can tolerate DSE topology change, which means that the backup data can be restored to 1) the same cluster without any topology change; 2) the same cluster with some topology change; or 3) a brand new cluster.
 - A major downside is that it is going to consume extra disk space (and extra disk and network I/O bandwith) in order to complete the whole process. For a keyspace with replication factor N (N > 1, normally 3 or above), it causes N times of the backup data to be ingested into he cluster. Although over the time, the C* compaction process will address the issue. But still, a lot of data has been transmitted over the network and processed in the system.
 
-In many cases, when there is NO DSE cluster topology change, a much faster approach is to 
+In many cases, when there is NO DSE cluster topology change, a much faster approach would be: 
 1) Simply copy the backup data to its corresponding DSE node, under the right C* keyspace/table (file system) folder
 2) Once the data is copied, run "nodetool refresh" command to pick up the data-to-be-retored in DSE cluster.
 
-
+# 
