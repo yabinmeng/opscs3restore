@@ -78,7 +78,6 @@ The program needs a few Java options and parameters to work properly:
     <thead>
         <tr>
             <th>Java Option / Parameter</th>
-            <th>Category</th>
             <th>Description</th>
         </tr>
     </thead>
