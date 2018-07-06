@@ -1,4 +1,5 @@
-import com.amazonaws.AmazonClientException;
+package com.dsetools;
+
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWSCredentials;
