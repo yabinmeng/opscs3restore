@@ -77,7 +77,7 @@ The program needs a few Java options and parameters to work properly:
 <table>
     <thead>
         <tr>
-            <th>Java Option or Parameter</th>
+            <th width=50%>Java Option or Parameter</th>
             <th>Description</th>
         </tr>
     </thead>
