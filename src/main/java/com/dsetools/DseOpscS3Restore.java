@@ -9,8 +9,10 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.*;
+import com.amazonaws.services.s3.transfer.Download;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
+import com.amazonaws.services.s3.transfer.TransferProgress;
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.Host;
 import com.datastax.driver.core.Metadata;
@@ -23,6 +25,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.*;
+import java.text.NumberFormat;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -42,11 +45,11 @@ class S3ObjDownloadRunnable implements  Runnable {
     private DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     S3ObjDownloadRunnable( int tID,
-                                   TransferManager transferManager,
-                                   String s3bkt_name,
-                                   String download_dir,
-                                   String[] object_names,
-                                   long[] object_sizes ) {
+                           TransferManager transferManager,
+                           String s3bkt_name,
+                           String download_dir,
+                           String[] object_names,
+                           long[] object_sizes ) {
         assert (tID > 0);
         assert (transferManager != null);
 
@@ -57,7 +60,7 @@ class S3ObjDownloadRunnable implements  Runnable {
         this.s3ObjNames = object_names;
         this.s3ObjSizes = object_sizes;
 
-        System.out.format(" Creating thread with ID %d.\n", threadID);
+        System.out.format("  Creating thread with ID %d (%d).\n", threadID, s3ObjNames.length);
     }
 
     @Override
@@ -65,36 +68,63 @@ class S3ObjDownloadRunnable implements  Runnable {
 
         LocalDateTime startTime = LocalDateTime.now();
 
-        System.out.println(" ... Starting thread " + threadID + " at: " + startTime.format(formatter));
+        System.out.println("   - Starting thread " + threadID + " at: " + startTime.format(formatter));
 
         int downloadedS3ObjNum = 0;
         int failedS3ObjNum = 0;
 
         for ( int i = 0; i < s3ObjNames.length; i++ ) {
             try {
-                File localFile = new File(downloadHomeDir + "/" + s3ObjNames[i]);
+                String realSStableName = null;
+
+                int mcFlagStartPos = s3ObjNames[i].indexOf(DseOpscS3RestoreUtils.CASSANDRA_SSTABLE_FILE_CODE);
+                realSStableName = s3ObjNames[i].substring(mcFlagStartPos);
+
+                String tmp = s3ObjNames[i].substring(0, mcFlagStartPos -1 );
+                int lastPathSeperatorPos = tmp.lastIndexOf('/');
+
+                String parentPathStr = tmp.substring(0, lastPathSeperatorPos - 1);
+
+                File localFile = new File(downloadHomeDir + "/" + parentPathStr + "/" + realSStableName);
+
                 GetObjectRequest getObjectRequest = new GetObjectRequest(s3BuketName, s3ObjNames[i]);
-                s3TransferManager.download(getObjectRequest, localFile);
+                Download s3Download = s3TransferManager.download(getObjectRequest, localFile);
+
+                // wait for download to complete
+                s3Download.waitForCompletion();
+
                 downloadedS3ObjNum++;
+
+                System.out.format("     [Thread %d] download of \"%s\" completed \n", threadID, s3ObjNames[i]);
+                TransferProgress transferProgress = s3Download.getProgress();
+                System.out.format("        >>> %d of %d bytes transferred (%.2f%%)\n",
+                    transferProgress.getBytesTransferred(),
+                    s3ObjSizes[i],
+                    transferProgress.getPercentTransferred());
             }
-            catch ( Exception ex ) {
+            catch ( InterruptedException ie) {
+                System.out.format("     [Thread %d] download of \"%s\" interrupted\n", threadID, s3ObjNames[i]);
                 failedS3ObjNum++;
             }
-
-            System.out.format("     [Thread %d] download of \"%s\" complete\n", threadID, s3ObjNames[i]);
+            catch ( Exception ex ) {
+                System.out.format("     [Thread %d] download of \"%s\" failed - unkown error\n", threadID, s3ObjNames[i]);
+                ex.printStackTrace();
+                failedS3ObjNum++;
+            }
         }
 
         LocalDateTime endTime = LocalDateTime.now();
 
         Duration duration = Duration.between(startTime, endTime);
 
-        System.out.format(" ... Existing Thread %d at %s (duration: %d seconds): %d of %d s3 objects downloaded, %d failed.\n",
+        System.out.format("   - Existing Thread %d at %s (duration: %d seconds): %d of %d s3 objects downloaded, %d failed.\n",
             threadID,
             endTime.format(formatter),
             duration.getSeconds(),
             downloadedS3ObjNum,
             s3ObjNames.length,
-            failedS3ObjNum);
+            failedS3ObjNum
+        );
     }
 }
 
@@ -142,7 +172,12 @@ public class DseOpscS3Restore {
             }
         }
 
-        TransferManager transferManager = TransferManagerBuilder.standard().withS3Client(s3Client).build();
+        TransferManager transferManager = null;
+
+        if (download) {
+            transferManager = TransferManagerBuilder.standard().withS3Client(s3Client).build();
+        }
+
         String bktName = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_OPSC_S3_BUCKET_NAME);
 
 
@@ -150,44 +185,9 @@ public class DseOpscS3Restore {
         ObjectListing objectListing = s3Client.listObjects(
             new ListObjectsRequest()
                 .withBucketName(bktName)
-                .withPrefix(DseOpscS3RestoreUtils.OPSC_S3_OBJKEY_BASESTR + "/" + hostId + "/opscenter"));
-
-        List<S3ObjectSummary> s3ObjectSummaries = objectListing.getObjectSummaries();
-        int numOpscBkupItems = s3ObjectSummaries.size();
-
-        System.out.println("\nTotoal OpsCenter S3 object number: " + numOpscBkupItems);
-
-        for (S3ObjectSummary objectSummary : s3ObjectSummaries) {
-            System.out.println(" - " + objectSummary.getKey() + " (size = " + objectSummary.getSize() + " bytes)");
-
-            if ( download ) {
-                try {
-                    String objKeyName = objectSummary.getKey();
-                    File localFile = new File(downloadHomeDir + "/" + objKeyName);
-                    GetObjectRequest getObjectRequest = new GetObjectRequest(bktName, objKeyName);
-                    transferManager.download(getObjectRequest, localFile);
-
-                } catch (AmazonServiceException e) {
-                    // The call was transmitted successfully, but Amazon S3 couldn't process
-                    // it, so it returned an error response.
-                    e.printStackTrace();
-                } catch (SdkClientException e) {
-                    // Amazon S3 couldn't be contacted for a response, or the client
-                    // couldn't parse the response from Amazon S3.
-                    e.printStackTrace();
-                }
-
-                System.out.println("   ... Download complete");
-            }
-        }
-
-        // Download OpsCenter S3 object items
-        objectListing = s3Client.listObjects(
-            new ListObjectsRequest()
-                .withBucketName(bktName)
                 .withPrefix(DseOpscS3RestoreUtils.OPSC_S3_OBJKEY_BASESTR + "/" + hostId + "/sstable"));
 
-        s3ObjectSummaries = objectListing.getObjectSummaries();
+        List<S3ObjectSummary> s3ObjectSummaries = objectListing.getObjectSummaries();
         int numSstableBkupItems = s3ObjectSummaries.size();
 
         System.out.println("\nTotoal SSTable S3 object number: " + numSstableBkupItems);
@@ -213,28 +213,91 @@ public class DseOpscS3Restore {
         int threadId = 0;
 
         for (S3ObjectSummary objectSummary : s3ObjectSummaries) {
+            System.out.println("  - " + objectSummary.getKey() + " (size = " + objectSummary.getSize() + " bytes)");
+
+            s3SstableObjKeyNames[i % SSTABLE_SET_FILENUM] = objectSummary.getKey();
+            s3SstableObjKeySizes[i % SSTABLE_SET_FILENUM] = objectSummary.getSize();
+
+            if ( download ) {
+                if ( (i > 0) && ((i + 1) % SSTABLE_SET_FILENUM == 0) ) {
+                    Runnable worker = new S3ObjDownloadRunnable(
+                        threadId,
+                        transferManager,
+                        bktName,
+                        downloadHomeDir,
+                        s3SstableObjKeyNames,
+                        s3SstableObjKeySizes );
+
+                    threadId++;
+
+                    s3SstableObjKeyNames = new String[SSTABLE_SET_FILENUM];
+                    s3SstableObjKeySizes = new long[SSTABLE_SET_FILENUM];
+
+                    executor.execute(worker);
+                }
+
+                i++;
+            }
+        }
+
+        if ( download && ( threadId  < (numSstableBkupItems / SSTABLE_SET_FILENUM) ) ) {
+            Runnable worker = new S3ObjDownloadRunnable(
+                threadId,
+                transferManager,
+                bktName,
+                downloadHomeDir,
+                s3SstableObjKeyNames,
+                s3SstableObjKeySizes );
+
+            executor.execute(worker);
+        }
+
+        executor.shutdown();
+
+        while (!executor.isTerminated()) {
+        }
+
+
+        // Download OpsCenter S3 object items
+        objectListing = s3Client.listObjects(
+            new ListObjectsRequest()
+                .withBucketName(bktName)
+                .withPrefix(DseOpscS3RestoreUtils.OPSC_S3_OBJKEY_BASESTR + "/" + hostId + "/opscenter"));
+
+        s3ObjectSummaries = objectListing.getObjectSummaries();
+        int numOpscBkupItems = s3ObjectSummaries.size();
+
+        System.out.println("\n\nTotoal OpsCenter S3 object number: " + numOpscBkupItems);
+
+        for (S3ObjectSummary objectSummary : s3ObjectSummaries) {
             System.out.println(" - " + objectSummary.getKey() + " (size = " + objectSummary.getSize() + " bytes)");
 
             if ( download ) {
                 try {
-                    s3SstableObjKeyNames[i % SSTABLE_SET_FILENUM] = objectSummary.getKey();
-                    s3SstableObjKeySizes[i % SSTABLE_SET_FILENUM] = objectSummary.getSize();
+                    String objKeyName = objectSummary.getKey();
 
-                    if ( (i+1) % SSTABLE_SET_FILENUM == 0 ) {
-                        threadId++;
+                    File localFile = new File(downloadHomeDir + "/" + objKeyName);
+                    GetObjectRequest getObjectRequest = new GetObjectRequest(bktName, objKeyName);
+                    Download s3Download = transferManager.download(getObjectRequest, localFile);
 
-                        Runnable worker = new S3ObjDownloadRunnable(
-                            threadId,
-                            transferManager,
-                            bktName,
-                            downloadHomeDir,
-                            s3SstableObjKeyNames,
-                            s3SstableObjKeySizes );
-
-                        executor.execute(worker);
+                    try {
+                        // wait for download to complete
+                        s3Download.waitForCompletion();
+                    }
+                    catch ( InterruptedException ie) {
+                        System.out.println("   ... Download interrupted.");
+                    }
+                    catch ( Exception ex ) {
+                        System.out.println("   ... Download failed - unkown error.");
+                        ex.printStackTrace();
                     }
 
-                    i++;
+
+                    TransferProgress transferProgress = s3Download.getProgress();
+                    System.out.format("   ... download complete: %d of %d bytes transferred (%.2f%%)\n",
+                        transferProgress.getBytesTransferred(),
+                        objectSummary.getSize(),
+                        transferProgress.getPercentTransferred());
 
                 } catch (AmazonServiceException e) {
                     // The call was transmitted successfully, but Amazon S3 couldn't process
@@ -248,10 +311,11 @@ public class DseOpscS3Restore {
             }
         }
 
-        executor.shutdown();
 
-        while (!executor.isTerminated()) {
+        if (transferManager != null) {
+            transferManager.shutdownNow();
         }
+
 
         System.out.println("\n");
 
@@ -295,35 +359,39 @@ public class DseOpscS3Restore {
     static void listDownloadS3ObjForMe(Metadata dseClusterMetadata,
                                        AmazonS3 s3Client,
                                        boolean download,
-                                       int threadNum) {
-        String myHostId = "";
+                                       int threadNum,
+                                       String hostIDStr) {
+        String myHostId = hostIDStr;
 
-        String localhostIp = getLocalIP("eth0");
+        if ( (hostIDStr == null) || (hostIDStr.isEmpty()) ) {
 
-        if (localhostIp == null) {
-            System.out.println("\nERROR: failed to get local host IP address!");
-            return;
-        }
+            String localhostIp = getLocalIP("eth0");
 
-        System.out.println("locahost: " + localhostIp);
+            if (localhostIp == null) {
+                System.out.println("\nERROR: failed to get local host IP address!");
+                return;
+            }
 
-        for (Host host : dseClusterMetadata.getAllHosts()) {
-            InetAddress listen_address = host.getListenAddress();
-            String listen_address_ip = (listen_address != null) ? host.getListenAddress().getHostAddress() : "";
+            for (Host host : dseClusterMetadata.getAllHosts()) {
+                InetAddress listen_address = host.getListenAddress();
+                String listen_address_ip = (listen_address != null) ? host.getListenAddress().getHostAddress() : "";
 
-            InetAddress broadcast_address = host.getListenAddress();
-            String broadcast_address_ip = (broadcast_address != null) ? host.getBroadcastAddress().getHostAddress() : "";
+                InetAddress broadcast_address = host.getListenAddress();
+                String broadcast_address_ip = (broadcast_address != null) ? host.getBroadcastAddress().getHostAddress() : "";
 
-            //System.out.println("listen_address: " + listen_address_ip);
-            //System.out.println("broadcast_address: " + broadcast_address_ip + "\n");
+                //System.out.println("listen_address: " + listen_address_ip);
+                //System.out.println("broadcast_address: " + broadcast_address_ip + "\n");
 
-            if (localhostIp.equals(listen_address_ip) || localhostIp.equals(broadcast_address_ip)) {
-                myHostId = host.getHostId().toString();
-                break;
+                if (localhostIp.equals(listen_address_ip) || localhostIp.equals(broadcast_address_ip)) {
+                    myHostId = host.getHostId().toString();
+                    break;
+                }
             }
         }
 
         if ( myHostId != null && !myHostId.isEmpty() ) {
+            //System.out.println("locahost: " + myHostId);
+
             listDownloadS3ObjForHost(dseClusterMetadata, s3Client, myHostId, download, threadNum);
         }
     }
@@ -392,16 +460,13 @@ public class DseOpscS3Restore {
         Option helpOption = new Option("h", "help",
             false,
             "Displays this help message.");
-        Option fileOption = new Option("f", "config",
-            true,
-            "Configure file path");
         Option listOption = new Option("l", "list",
             true,
-            "List OpsCenter S3 backup items (all| DC:\"<dc_name>\" | me).");
+            "List OpsCenter S3 backup items (all | DC:\"<dc_name>\" | me[:\"<host_id_string>\"]).");
         Option downloadOption = new Option("d", "download",
             true,
             "Download OpsCenter S3 bakcup items to local directory (only applies to \"list me\" case");
-        Option configFileOption = new Option("f", "config",
+        Option fileOption = new Option("f", "config",
             true,
             "Configuration properties file path");
 
@@ -409,7 +474,6 @@ public class DseOpscS3Restore {
         options.addOption(listOption);
         options.addOption(fileOption);
         options.addOption(downloadOption);
-        options.addOption(configFileOption);
     }
 
     /**
@@ -417,16 +481,22 @@ public class DseOpscS3Restore {
      */
     static void usageAndExit(int errorCode) {
 
+        System.out.println();
+
         PrintWriter errWriter = new PrintWriter(System.out, true);
 
         try {
             HelpFormatter formatter = new HelpFormatter();
 
-            formatter.printHelp(errWriter, 120, "DseOpscS3Restore",
-                String.format("%DseOpscS3Restore Options:"),
+            formatter.printHelp(errWriter, 150, "DseOpscS3Restore",
+                String.format("\nDseOpscS3Restore Options:"),
                 options, 2, 1, "", true);
 
             System.out.println();
+            System.out.println();
+        }
+        catch ( Exception e ) {
+            e.printStackTrace();
         }
         finally
         {
@@ -486,6 +556,7 @@ public class DseOpscS3Restore {
         boolean listMe = false;
 
         String dcNameToList = "";
+        String myHostID = "";
 
         if ( cmd.hasOption("l") ) {
             String lOptVal = cmd.getOptionValue("l");
@@ -495,10 +566,27 @@ public class DseOpscS3Restore {
             }
             else if ( lOptVal.startsWith("DC") ) {
                 listDC = true;
-                dcNameToList = lOptVal.split(":")[1];
+
+                String[] strSplits = lOptVal.split(":");
+                if (strSplits.length != 2) {
+                    System.out.println("\nERROR: Please specify proper \"-l DC\" option:  -l DC:\"<DC_Name>\"");
+                    usageAndExit(-40);
+                }
+                else {
+                    dcNameToList = strSplits[1];
+                }
             }
-            else if ( lOptVal.equalsIgnoreCase("me") ) {
+            else if ( lOptVal.startsWith("me") ) {
                 listMe = true;
+
+                String[] strSplits = lOptVal.split(":");
+                if ( lOptVal.contains(":") && (strSplits.length != 2) ) {
+                    System.out.println("\nERROR: Please specify proper \"-l me\" option:  -l me[:\"<specified_host_id_string>\"]");
+                    usageAndExit(-50);
+                }
+                else if ( lOptVal.contains(":") ) {
+                    myHostID = lOptVal.split(":")[1];
+                }
             }
         }
 
@@ -531,8 +619,9 @@ public class DseOpscS3Restore {
 
         CONFIGPROP = DseOpscS3RestoreUtils.LoadConfigFile(cfgFilePath);
         if (CONFIGPROP == null) {
-            System.exit(-40);
+            System.exit(-50);
         }
+
 
         /**
          * Verify AWS credential
@@ -607,7 +696,11 @@ public class DseOpscS3Restore {
         }
         // List (and download) Opsc S3 backup items for myself (the host that runs this program)
         else if ( listMe ) {
-            listDownloadS3ObjForMe(dseClusterMetadata, s3Client, downloadS3Obj, downloadS3ObjThreadNum);
+            listDownloadS3ObjForMe(dseClusterMetadata, s3Client, downloadS3Obj, downloadS3ObjThreadNum, myHostID);
+        }
+
+        if (s3Client != null) {
+            s3Client.shutdown();
         }
 
         System.exit(0);

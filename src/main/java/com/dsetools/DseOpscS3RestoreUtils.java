@@ -15,6 +15,8 @@ public class DseOpscS3RestoreUtils {
 
     static String OPSC_S3_OBJKEY_BASESTR = "snapshots";
 
+    static String CASSANDRA_SSTABLE_FILE_CODE = "mc";
+
 
     static Properties LoadConfigFile(String configFilePath) {
 
