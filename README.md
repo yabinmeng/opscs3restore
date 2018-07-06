@@ -84,7 +84,7 @@ The program needs a few Java options and parameters to work properly:
     </thead>
     <tbody>
         <tr>
-            <td> -Daws.accessKeyId=\<your_aws_access_key\> </td>
+            <td> -Daws.accessKeyId=&lt;your_aws_access_key&gt; </td>
             <tdrowspan=2> JVM option </td>
             <td rowspan=2> 
                 <li> AWS access credentials to access S3 bucket </li>
@@ -92,7 +92,7 @@ The program needs a few Java options and parameters to work properly:
             </td>
         </tr>
         <tr>
-            <td> -Daws.secretKey=\<your_aws_secret_key\> </td>
+            <td> -Daws.secretKey=&lt;your_aws_secret_key&gt; </td>
         </tr>
     </tbody>
 </table>
