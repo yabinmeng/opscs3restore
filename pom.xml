@@ -184,7 +184,7 @@
             <manifest>
               <addClasspath>true</addClasspath>
               <classpathPrefix>lib/</classpathPrefix>
-              <mainClass>theMainClass</mainClass>
+              <mainClass>com.dsetools.DseOpscS3Restore</mainClass>
             </manifest>
           </archive>
         </configuration>
