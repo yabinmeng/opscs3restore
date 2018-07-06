@@ -111,3 +111,22 @@ The program needs a few Java options and parameters to work properly:
 </br>
 
 ## 2.2. Examples
+
+1. List OpsCenter S3 backup items for all nodes in a cluster 
+```
+java -Daws.accessKeyId=<aws_accesskey_id> -Daws.secretKey=<aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l all -f ./opsc_s3_config.properties
+```
+
+2. List OpsCenter S3 backup items for all nodes in a specific DC named 'DC1'
+```
+java -Daws.accessKeyId=<aws_accesskey_id> -Daws.secretKey=<aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l DC:"DC1" -f ./opsc_s3_config.properties
+```
+
+3. List OpsCenter S3 backup items for the current node that runs this program
+```
+java -Daws.accessKeyId=<aws_accesskey_id> -Daws.secretKey=<aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l me -f ./opsc_s3_config.properties
+```
+
+4. List and **Download** OpsCenter S3 backup items for a particular node, with maximum concurrent download thread to be 5
+```
+java -Daws.accessKeyId=<aws_accesskey_id> -Daws.secretKey=<aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l me:"10409aec-241c-4a79-a707-2d3e4951dbf6" -f ./opsc_s3_config.properties -d 5
