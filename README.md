@@ -30,8 +30,7 @@ Please note that this is just a "virtual" structure. The actual S3 object is sim
 ```
 mybucket/snapshots/node-id1/sstables/MyKeyspace-MyTable-ic-5-Data.db
 ```
-
-## 1.1. Restore Challenge 
+_**Restore Challenge**_ 
 
 When we use OpsCener Service to restore backup data from S3, behind the scene it utilizes the traditional Cassandra "sstableloader" utility. Simply speaking, OpsCenter server, through datatax-agent on each DSE node, fetches backup data from 
 S3 bucket and once it is done, it kicks of "sstableloader" to bulk-loading data into DSE cluster. It repeats the same process until all backup data in S3 bucket has been processed.
@@ -41,7 +40,7 @@ This approach has pros an cons:
 - A major downside is that it is going to consume extra disk space (and extra disk and network I/O bandwith) in order to complete the whole process. For a keyspace with replication factor N (N > 1, normally 3 or above), it causes N times of the backup data to be ingested into he cluster. Although over the time, the C* compaction process will address the issue. But still, a lot of data has been transmitted over the network and processed in the system.
 
 
-# 2. Solution Overview and Introduction
+# 2. Solution Overview and Usage Description
 
 In many cases, when there is **NO DSE cluster topology change**, a much faster approach (compared with approach we discussed in section 1.1) would be to
 1) Simply copy the backup data to its corresponding DSE node, under the right C* keyspace/table (file system) folder
@@ -51,9 +50,9 @@ The second step of this approach is very straightforward. But when it comes to t
 
 It also contains an example bash script file that covers the whole (2 steps) procedure of this approach - downloading backup data from S3 to a local directory; and run "nodetool refresh" to restore data into DSE cluster.
 
-## 2.2. Usage Description
+_**Usage Description**_
 
-### 2.2.1. Fast S3 Backup Data Download Utility
+### 2.1. Fast S3 Backup Data Download Utility
 
 1. Download the most recent release of .jar file from [here](https://github.com/yabinmeng/opscs3restore/releases/download/1.0/DseAWSRestore-1.0-SNAPSHOT.jar)
 
@@ -112,4 +111,6 @@ The program needs a few Java options and parameters to work properly:
     </tbody>
 </table>
 
-### 2.2.2. Multi-threaded S3 SSTable Backup Downloading
+### 2.2. Backup Data Restore Script
+
+aa
