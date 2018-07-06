@@ -69,7 +69,7 @@ opsc_s3_bucket_name: ymeng-dse-s3-test
 
 3. Run the program 
 ```
-java -Daws.accessKeyId=<your_aws_access_key> -Daws.secretKey=<your_aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l <all|DC:"<DC_name>"|>me -f <opsc_s3_configure.properties file full paht> -d <max_concurrent_downloading_thread_num>
+java -Daws.accessKeyId=<your_aws_access_key> -Daws.secretKey=<your_aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l <all|DC:"<DC_name>"|>me> -f <opsc_s3_configure.properties file full paht> -d <max_concurrent_downloading_thread_num>
 ```
 
 The program needs a few Java options and parameters to work properly:
@@ -96,9 +96,19 @@ The program needs a few Java options and parameters to work properly:
         <tr> 
             <td> -l &lt;all|DC:"&lt;DC_name&gt;"|me&gt; </td>
             <td> List S3 backup items on the commandline output: <br/>
-                <li> all - list the S3 backup items for all nodes in the cluster </li>
-                <li> DC:"&lt;DC_name&gt;" - list the S3 backup items of all nodes in a specified DC </li>
-                <li> me - list the S3 bckup item just for myself (the node that runs this program) </li>
+                <li> all -- list the S3 backup items for all nodes in the cluster </li>
+                <li> DC:"&lt;DC_name&gt;" -- list the S3 backup items of all nodes in a specified DC </li>
+                <li> me -- list the S3 bckup item just for myself (the node that runs this program) </li>
+        </tr>
+        <tr>
+            <td> -f <opsc_s3_configure.properties file full paht> </td>
+            <td> The full file path of "opsc_s3_configure.properties" file. </td>
+        </tr>
+        <tr>
+            <td> -d <max_concurrent_downloading_thread_num> </td>
+            <td> 
+                <li> ONLY works with "-l me" option; which means "-l all" and "-l DC" options are just for display purpose </li>
+                <li> <max_concurrent_downloading_thread_num> represents the number of threads (Max 10) that can concurrently download S3 backup sstables. </li>
         </tr>
     </tbody>
 </table>
