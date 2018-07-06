@@ -105,7 +105,7 @@ java -Daws.accessKeyId=<aws_accesskey_id> -Daws.secretKey=<aws_secret_key> -jar 
 java -Daws.accessKeyId=<aws_accesskey_id> -Daws.secretKey=<aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l me:"10409aec-241c-4a79-a707-2d3e4951dbf6" -f ./opsc_s3_config.properties -d 5
 ```
 
-A sample out of example 4 above is as below:
+A sample output of example 4 above is as below:
 ```
 java -Daws.accessKeyId=AKIAJZQBL2RROEWRMDMQ -Daws.secretKey=OTlkQztMQNIY2+NpU6g/dk/OR7yawcUxAlRWc0qC -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l me -f ./opsc_s3_config.properties -d 5
 List and download OpsCenter S3 backup items for specified host (10409aec-241c-4a79-a707-2d3e4951dbf6) ...
