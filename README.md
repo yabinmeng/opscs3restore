@@ -103,3 +103,40 @@ java -Daws.accessKeyId=<aws_accesskey_id> -Daws.secretKey=<aws_secret_key> -jar 
 4. List and **Download** OpsCenter S3 backup items for a particular node, with maximum concurrent download thread to be 5. Local download directory is configured in "opsc_s3_config.properties" file.
 ```
 java -Daws.accessKeyId=<aws_accesskey_id> -Daws.secretKey=<aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l me:"10409aec-241c-4a79-a707-2d3e4951dbf6" -f ./opsc_s3_config.properties -d 5
+```
+
+A sample out of example 4 above is as below:
+```
+java -Daws.accessKeyId=AKIAJZQBL2RROEWRMDMQ -Daws.secretKey=OTlkQztMQNIY2+NpU6g/dk/OR7yawcUxAlRWc0qC -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l me -f ./opsc_s3_config.properties -d 5
+List and download OpsCenter S3 backup items for specified host (10409aec-241c-4a79-a707-2d3e4951dbf6) ...
+
+Totoal SSTable S3 object number: 6
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/9941b3baf0c02303123bb01d40786861-mc-1-big-CompressionInfo.db (size = 43 bytes)
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/9941b3baf0c02303123bb01d40786861-mc-1-big-Data.db (size = 261 bytes)
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/9941b3baf0c02303123bb01d40786861-mc-1-big-Filter.db (size = 24 bytes)
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/9941b3baf0c02303123bb01d40786861-mc-1-big-Index.db (size = 123 bytes)
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/9941b3baf0c02303123bb01d40786861-mc-1-big-Statistics.db (size = 4739 bytes)
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/9941b3baf0c02303123bb01d40786861-mc-1-big-Summary.db (size = 92 bytes)
+  Creating thread with ID 0 (6).
+   - Starting thread 0 at: 2018-07-06 23:07:49
+     [Thread 0] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/9941b3baf0c02303123bb01d40786861-mc-1-big-CompressionInfo.db" completed
+        >>> 43 of 43 bytes transferred (100.00%)
+     [Thread 0] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/9941b3baf0c02303123bb01d40786861-mc-1-big-Data.db" completed
+        >>> 261 of 261 bytes transferred (100.00%)
+     [Thread 0] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/9941b3baf0c02303123bb01d40786861-mc-1-big-Filter.db" completed
+        >>> 24 of 24 bytes transferred (100.00%)
+     [Thread 0] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/9941b3baf0c02303123bb01d40786861-mc-1-big-Index.db" completed
+        >>> 123 of 123 bytes transferred (100.00%)
+     [Thread 0] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/9941b3baf0c02303123bb01d40786861-mc-1-big-Statistics.db" completed
+        >>> 4739 of 4739 bytes transferred (100.00%)
+     [Thread 0] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/9941b3baf0c02303123bb01d40786861-mc-1-big-Summary.db" completed
+        >>> 92 of 92 bytes transferred (100.00%)
+   - Existing Thread 0 at 2018-07-06 23:07:50 (duration: 0 seconds): 6 of 6 s3 objects downloaded, 0 failed.
+
+
+Totoal OpsCenter S3 object number: 2
+ - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/opscenter_adhoc_2018-07-02-23-45-45-UTC/backup.json (size = 1460 bytes)
+   ... download complete: 1460 of 1460 bytes transferred (100.00%)
+ - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/opscenter_adhoc_2018-07-02-23-45-45-UTC/testks/schema.json (size = 1173 bytes)
+   ... download complete: 1173 of 1173 bytes transferred (100.00%)
+```   
