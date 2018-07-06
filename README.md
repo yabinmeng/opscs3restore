@@ -44,11 +44,9 @@ This approach has pros an cons:
 
 In many cases, when there is **NO DSE cluster topology change**, a much faster approach (compared with approach we discussed in section 1.1) would be to
 1) Simply copy the backup data to its corresponding DSE node, under the right C* keyspace/table (file system) folder
-2) Once the data is copied, run "nodetool refresh" command to pick up the data-to-be-retored in DSE cluster.
+2) Once the data is copied, either restart DSE node or run "nodetool refresh" command (no restart needed) to pick up the data-to-be-retored in DSE cluster.
 
 The second step of this approach is very straightforward. But when it comes to the first step of fetching corresponding DSE node backup data from a S3 bucket, there is NO ready-to-use tool that can help. The goal of this code repository is to provide such a utility that can help user to fast (multi-threaded) download DSE node specific backup items from S3 to a local directory. 
-
-It also contains an example bash script file that covers the whole (2 steps) procedure of this approach - downloading backup data from S3 to a local directory; and run "nodetool refresh" to restore data into DSE cluster.
 
 ## 2.1. Usage Description
 
@@ -96,7 +94,7 @@ The program needs a few Java options and parameters to work properly:
             <td> List S3 backup items on the commandline output: <br/>
                 <li> all -- list the S3 backup items for all nodes in the cluster </li>
                 <li> DC:"&lt;DC_name&gt;" -- list the S3 backup items of all nodes in a specified DC </li>
-                <li> me -- list the S3 bckup item just for myself (the node that runs this program) </li>
+                <li> me[:"&lt;<dsenode_host_id_string>] -- list the S3 bckup item just for 1) myself (the node that runs this program - IP matching); or 2) for any DSE node with its host ID provided as second parameter for this option. </li>
         </tr>
         <tr>
             <td> -f &lt; opsc_s3_configure.properties_full_paht &gt; </td>
@@ -112,6 +110,4 @@ The program needs a few Java options and parameters to work properly:
 </table>
 </br>
 
-**[Backup Data Restore Script]**
-
-
+## 2.2. Examples
