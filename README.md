@@ -66,7 +66,7 @@ opsc_s3_aws_region: us-east-1
 opsc_s3_bucket_name: ymeng-dse-s3-test
 ```
 
-3. Run the program 
+3. Run the program, providing the proper java options and arguments.
 ```
 java -Daws.accessKeyId=<your_aws_access_key> -Daws.secretKey=<your_aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l <all|DC:"<DC_name>"|>me> -f <opsc_s3_configure.properties_full_paht> -d <max_concurrent_downloading_thread_num>
 ```
@@ -111,9 +111,7 @@ The program needs a few Java options and parameters to work properly:
     </tbody>
 </table>
 </br>
-</br>
-</br>
 
 **[Backup Data Restore Script]**
 
-aa
+
