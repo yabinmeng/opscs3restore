@@ -1,4 +1,4 @@
-# Background and Problem Overview
+# 1. Background and Problem Overview
 
 DataStax OpsCenter simplifies the task of backup and restore of data out of a DSE (DataStax Enterprise) clusster a lot through its out-of-the-box feature of [Backup Service](https://docs.datastax.com/en/opscenter/6.5/opsc/online_help/services/opscBackupService.html). Through this service, a user can choose to bakup DSE data to multiple locations, including AWS S3, which becomes a more and more popular choice in today's ever-increasing cloud environment.
 
@@ -31,7 +31,7 @@ Please note that this is just a "virtual" structure. The actual S3 object is sim
 mybucket/snapshots/node-id1/sstables/MyKeyspace-MyTable-ic-5-Data.db
 ```
 
-## Restore Challenge 
+## 1.1. Restore Challenge 
 
 When we use OpsCener Service to restore backup data from S3, behind the scene it utilizes the traditional Cassandra "sstableloader" utility. Simply speaking, OpsCenter server, through datatax-agent on each DSE node, fetches backup data from 
 S3 bucket and once it is done, it kicks of "sstableloader" to bulk-loading data into DSE cluster. It repeats the same process until all backup data in S3 bucket has been processed.
@@ -44,5 +44,5 @@ In many cases, when there is NO DSE cluster topology change, a much faster appro
 1) Simply copy the backup data to its corresponding DSE node, under the right C* keyspace/table (file system) folder
 2) Once the data is copied, run "nodetool refresh" command to pick up the data-to-be-retored in DSE cluster.
 
-# Soltion Overview
+# 2. Soltion Overview
 
