@@ -78,4 +78,25 @@ The program needs a few Java options and parameters to work properly:
 | ----------------------- | ----------------------------- |
 | -Daws.accessKeyId=<your_aws_access_key> -Daws.secretKey=<your_aws_secret_key> | > Specifiy the AWS credentials to connect to S3 bucket; \n > a |
 
+<table>
+    <thead>
+        <tr>
+            <th>Java Option / Parameter</th>
+            <th>Category</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td> -Daws.accessKeyId=<your_aws_access_key> </td>
+            <td> JVM option </td>
+            <td rowspan=2> AWS access key to 
+        </tr>
+        <tr>
+            <td> -Daws.secretKey=<your_aws_secret_key> </td>
+            <td> JVM option </td>
+        </tr>
+    </tbody>
+</table>
+
 
