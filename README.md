@@ -51,7 +51,7 @@ The second step of this approach is very straightforward. But when it comes to t
 
 It also contains an example bash script file that covers the whole (2 steps) procedure of this approach - downloading backup data from S3 to a local directory; and run "nodetool refresh" to restore data into DSE cluster.
 
-## 2.2. Usage Description for
+## 2.2. Usage Description
 
 ### 2.2.1. Fast S3 Backup Data Download Utility
 
@@ -59,8 +59,7 @@ It also contains an example bash script file that covers the whole (2 steps) pro
 
 2. Download the example configuration file (opsc_s3_config.properties) from [here](https://github.com/yabinmeng/opscs3restore/blob/master/src/main/resources/opsc_s3_config.properties)
 
-   The 
-
+   The example configuration file includes 4 items to configure. These items are quite straightforward and self-explanatory!
 ```
 dse_contact_point: 127.0.0.1
 local_download_home: ./s3_download_test
@@ -68,5 +67,9 @@ opsc_s3_aws_region: us-east-1
 opsc_s3_bucket_name: ymeng-dse-s3-test
 ```
 
+3. Run the program 
+```
+java -Daws.accessKeyId=<your_aws_access_key> -Daws.secretKey=<your_aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l <all|DC:"<DC_name>"|>me -f <opsc_s3_configure.properties file full paht> -d <max_concurrent_downloading_thread_num>
+```
 
 
