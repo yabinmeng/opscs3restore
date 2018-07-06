@@ -93,6 +93,9 @@ The program needs a few Java options and parameters to work properly:
         <tr>
             <td> -Daws.secretKey=&lt;your_aws_secret_key&gt; </td>
         </tr>
+        <tr> 
+            <td> -l &lt;all|DC:"&lt;DC_name&gt;"|me&gt; </td>
+        </tr>
     </tbody>
 </table>
 
