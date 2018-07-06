@@ -95,6 +95,10 @@ The program needs a few Java options and parameters to work properly:
         </tr>
         <tr> 
             <td> -l &lt;all|DC:"&lt;DC_name&gt;"|me&gt; </td>
+            <td> List S3 backup items on the commandline output: <br/>
+                <li> all - list the S3 backup items for all nodes in the cluster </li>
+                <li> DC:"&lt;DC_name&gt;" - list the S3 backup items of all nodes in a specified DC </li>
+                <li> me - list the S3 bckup item just for myself (the node that runs this program) </li>
         </tr>
     </tbody>
 </table>
