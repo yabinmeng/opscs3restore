@@ -63,6 +63,7 @@ local_download_home: ./s3_download_test
 opsc_s3_aws_region: us-east-1
 opsc_s3_bucket_name: ymeng-dse-s3-test
 ```
+**NOTE**: Please make sure correct AWS region and S3 bucket name are entered in this conifguration file!
 
 3. Run the program, providing the proper java options and arguments.
 ```
