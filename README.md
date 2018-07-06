@@ -47,6 +47,10 @@ In many cases, when there is **NO DSE cluster topology change**, a much faster a
 1) Simply copy the backup data to its corresponding DSE node, under the right C* keyspace/table (file system) folder
 2) Once the data is copied, run "nodetool refresh" command to pick up the data-to-be-retored in DSE cluster.
 
-The second step of this approach is very straightforward. But when it comes to the first step of fetching corresponding node backup data from a S3 bucket, there is ready-to-use tool that can help us. The goal of this code repository is to provide user a capability to fast (multi-threaded) downloading DSE node specific backup items from S3 to the local directory.
+The second step of this approach is very straightforward. But when it comes to the first step of fetching corresponding DSE node backup data from a S3 bucket, there is NO ready-to-use tool that can help. The goal of this code repository is to provide such a utility that can help user to fast (multi-threaded) download DSE node specific backup items from S3 to a local directory. 
 
-## 
+It also contains an example bash script file that covers the whole (2 steps) procedure of this approach - downloading backup data from S3 to local directory; and run "nodetool refresh" to restore data into DSE cluster.
+
+## Usage Description
+
+
