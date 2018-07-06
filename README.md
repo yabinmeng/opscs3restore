@@ -86,8 +86,8 @@ The program needs a few Java options and parameters to work properly:
             <td> -Daws.accessKeyId=&lt;your_aws_access_key&gt; </td>
             <tdrowspan=2> JVM option </td>
             <td rowspan=2> 
-                <li> AWS access credentials to access S3 bucket </li>
-                <li> a </li>
+                <li> AWS access credentials to access S3 bucket. </li>
+                <li> AWS default credential file (~/.aws/credentials) is also supported and takes precedence over the credential JVM options. </li>
             </td>
         </tr>
         <tr>
