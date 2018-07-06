@@ -30,7 +30,7 @@ Please note that this is just a "virtual" structure. The actual S3 object is sim
 ```
 mybucket/snapshots/node-id1/sstables/MyKeyspace-MyTable-ic-5-Data.db
 ```
-_ **Restore Challenge** _ 
+**==Restore Challenge==**
 
 When we use OpsCener Service to restore backup data from S3, behind the scene it utilizes the traditional Cassandra "sstableloader" utility. Simply speaking, OpsCenter server, through datatax-agent on each DSE node, fetches backup data from 
 S3 bucket and once it is done, it kicks of "sstableloader" to bulk-loading data into DSE cluster. It repeats the same process until all backup data in S3 bucket has been processed.
