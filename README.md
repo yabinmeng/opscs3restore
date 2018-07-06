@@ -1,4 +1,4 @@
-# 1. Background and Problem Overview
+# 1. Problem Overview
 
 DataStax OpsCenter simplifies the task of backup and restore of data out of a DSE (DataStax Enterprise) clusster a lot through its out-of-the-box feature of [Backup Service](https://docs.datastax.com/en/opscenter/6.5/opsc/online_help/services/opscBackupService.html). Through this service, a user can choose to bakup DSE data to multiple locations, including AWS S3, which becomes a more and more popular choice in today's ever-increasing cloud environment.
 
@@ -30,7 +30,7 @@ Please note that this is just a "virtual" structure. The actual S3 object is sim
 ```
 mybucket/snapshots/node-id1/sstables/MyKeyspace-MyTable-ic-5-Data.db
 ```
-_**Restore Challenge**_ 
+_ **Restore Challenge** _ 
 
 When we use OpsCener Service to restore backup data from S3, behind the scene it utilizes the traditional Cassandra "sstableloader" utility. Simply speaking, OpsCenter server, through datatax-agent on each DSE node, fetches backup data from 
 S3 bucket and once it is done, it kicks of "sstableloader" to bulk-loading data into DSE cluster. It repeats the same process until all backup data in S3 bucket has been processed.
@@ -50,9 +50,9 @@ The second step of this approach is very straightforward. But when it comes to t
 
 It also contains an example bash script file that covers the whole (2 steps) procedure of this approach - downloading backup data from S3 to a local directory; and run "nodetool refresh" to restore data into DSE cluster.
 
-_**Usage Description**_
+##2.1. Usage Description
 
-### 2.1. Fast S3 Backup Data Download Utility
+**Fast S3 Backup Data Download Utility**
 
 1. Download the most recent release of .jar file from [here](https://github.com/yabinmeng/opscs3restore/releases/download/1.0/DseAWSRestore-1.0-SNAPSHOT.jar)
 
@@ -111,6 +111,7 @@ The program needs a few Java options and parameters to work properly:
     </tbody>
 </table>
 
-### 2.2. Backup Data Restore Script
+
+**[Backup Data Restore Script]**
 
 aa
