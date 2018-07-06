@@ -40,9 +40,13 @@ This approach has pros an cons:
 - The biggest pro is that it can tolerate DSE topology change, which means that the backup data can be restored to 1) the same cluster without any topology change; 2) the same cluster with some topology change; or 3) a brand new cluster.
 - A major downside is that it is going to consume extra disk space (and extra disk and network I/O bandwith) in order to complete the whole process. For a keyspace with replication factor N (N > 1, normally 3 or above), it causes N times of the backup data to be ingested into he cluster. Although over the time, the C* compaction process will address the issue. But still, a lot of data has been transmitted over the network and processed in the system.
 
-In many cases, when there is NO DSE cluster topology change, a much faster approach would be: 
+
+# 2. Solution Overview and Usage Description
+
+In many cases, when there is **NO DSE cluster topology change**, a much faster approach (compared with approach we discussed in section 1.1) would be to
 1) Simply copy the backup data to its corresponding DSE node, under the right C* keyspace/table (file system) folder
 2) Once the data is copied, run "nodetool refresh" command to pick up the data-to-be-retored in DSE cluster.
 
-# 2. Soltion Overview
+The second step of this approach is very straightforward. But when it comes to the first step of fetching corresponding node backup data from a S3 bucket, there is ready-to-use tool that can help us. The goal of this code repository is to provide user a capability to fast (multi-threaded) downloading DSE node specific backup items from S3 to the local directory.
 
+## 
