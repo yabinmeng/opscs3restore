@@ -127,6 +127,6 @@ java -Daws.accessKeyId=<aws_accesskey_id> -Daws.secretKey=<aws_secret_key> -jar 
 java -Daws.accessKeyId=<aws_accesskey_id> -Daws.secretKey=<aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l me -f ./opsc_s3_config.properties
 ```
 
-4. List and **Download** OpsCenter S3 backup items for a particular node, with maximum concurrent download thread to be 5
+4. List and **Download** OpsCenter S3 backup items for a particular node, with maximum concurrent download thread to be 5. Local download directory is configured in "opsc_s3_config.properties" file.
 ```
 java -Daws.accessKeyId=<aws_accesskey_id> -Daws.secretKey=<aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l me:"10409aec-241c-4a79-a707-2d3e4951dbf6" -f ./opsc_s3_config.properties -d 5
