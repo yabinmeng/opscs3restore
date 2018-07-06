@@ -41,7 +41,7 @@ This approach has pros an cons:
 - A major downside is that it is going to consume extra disk space (and extra disk and network I/O bandwith) in order to complete the whole process. For a keyspace with replication factor N (N > 1, normally 3 or above), it causes N times of the backup data to be ingested into he cluster. Although over the time, the C* compaction process will address the issue. But still, a lot of data has been transmitted over the network and processed in the system.
 
 
-# 2. Solution Overview and Usage Description
+# 2. Solution Overview and Introduction
 
 In many cases, when there is **NO DSE cluster topology change**, a much faster approach (compared with approach we discussed in section 1.1) would be to
 1) Simply copy the backup data to its corresponding DSE node, under the right C* keyspace/table (file system) folder
