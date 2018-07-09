@@ -14,7 +14,7 @@ This approach has pros an cons:
 
 # 2. Solution Overview and Usage Description
 
-In many cases, when there is **NO DSE cluster topology change**, a much faster approach (compared with approach we discussed in section 1.1) would be to
+In many cases, when there is **NO DSE cluster topology change**, a much faster approach (compared with approach we discussed above) would be to
 1) Simply copy the backup data to its corresponding DSE node, under the right C* keyspace/table (file system) folder
 2) Once the data is copied, either restart DSE node or run "nodetool refresh" command (no restart needed) to pick up the data-to-be-retored in DSE cluster.
 
