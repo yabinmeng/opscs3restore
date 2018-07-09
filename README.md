@@ -28,7 +28,7 @@ The second step of this approach is very straightforward. But when it comes to t
 
 2. Download the example configuration file (opsc_s3_config.properties) from [here](https://github.com/yabinmeng/opscs3restore/blob/master/src/main/resources/opsc_s3_config.properties)
 
-   The example configuration file includes 4 items to configure. These items are quite straightforward and self-explanatory!
+   The example configuration file includes 4 items to configure. These items are quite straightforward and self-explanatory. Please update accordingly to your use case!
 ```
 dse_contact_point: 127.0.0.1
 local_download_home: ./s3_download_test
