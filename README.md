@@ -76,7 +76,7 @@ The program needs a few Java options and parameters to work properly:
         <tr>
             <td> -d &lt; max_concurrent_downloading_thread_num &gt; </td>
             <td> 
-                <li> ONLY works with "-l me" option; which means "-l all" and "-l DC" options are just for display purpose </li>
+                <li> <b>ONLY works with "-l me" option; which means "-l all" and "-l DC" options are just for display purpose</b> </li>
                 <li> &lt; max_concurrent_downloading_thread_num &gt; represents the number of threads (Max 10) that can concurrently download S3 backup sstable sets. </li>
         </tr>
     </tbody>
