@@ -39,7 +39,7 @@ opsc_s3_bucket_name: ymeng-dse-s3-test
 
 3. Run the program, providing the proper java options and arguments.
 ```
-java -Daws.accessKeyId=<your_aws_access_key> -Daws.secretKey=<your_aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l <all|DC:"<DC_name>"|>me> -f <opsc_s3_configure.properties_full_paht> -d <max_concurrent_downloading_thread_num>
+java -Daws.accessKeyId=<your_aws_access_key> -Daws.secretKey=<your_aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l <all|DC:"<DC_name>"|>me[:"<dsenode_host_id_string>"]> -f <opsc_s3_configure.properties_full_paht> -d <max_concurrent_downloading_thread_num>
 ```
 
 The program needs a few Java options and parameters to work properly:
@@ -67,7 +67,7 @@ The program needs a few Java options and parameters to work properly:
             <td> List S3 backup items on the commandline output: <br/>
                 <li> all -- list the S3 backup items for all nodes in the cluster </li>
                 <li> DC:"&lt;DC_name&gt;" -- list the S3 backup items of all nodes in a specified DC </li>
-                <li> me[:"&lt;<dsenode_host_id_string>] -- list the S3 bckup item just for 1) myself (the node that runs this program - IP matching); or 2) for any DSE node with its host ID provided as second parameter for this option. </li>
+                <li> me[:"&lt;<dsenode_host_id_string>"&gt;] -- list the S3 bckup item just for 1) myself (the node that runs this program - IP matching); or 2) for any DSE node with its host ID provided as second parameter for this option. </li>
         </tr>
         <tr>
             <td> -f &lt; opsc_s3_configure.properties_full_paht &gt; </td>
