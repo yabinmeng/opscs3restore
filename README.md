@@ -63,11 +63,11 @@ The program needs a few Java options and parameters to work properly:
             <td> -Daws.secretKey=&lt; your_aws_secret_key &gt; </td>
         </tr>
         <tr> 
-            <td> -l &lt; all | DC:"&lt;DC_name&gt;" | me &gt; </td>
+            <td> -l &lt; all | DC:"&lt;DC_name&gt;" | me[:"&lt;<dsenode_host_id_string>&gt;"] </td>
             <td> List S3 backup items on the commandline output: <br/>
                 <li> all -- list the S3 backup items for all nodes in the cluster </li>
                 <li> DC:"&lt;DC_name&gt;" -- list the S3 backup items of all nodes in a specified DC </li>
-                <li> me[:"&lt;<dsenode_host_id_string>"&gt;] -- list the S3 bckup item just for 1) myself (the node that runs this program - IP matching); or 2) for any DSE node with its host ID provided as second parameter for this option. </li>
+                <li> me[:"&lt;<dsenode_host_id_string>&gt;"] -- list the S3 bckup item just for 1) myself (the node that runs this program - IP matching); or 2) for any DSE node with its host ID provided as second parameter for this option. </li>
         </tr>
         <tr>
             <td> -f &lt; opsc_s3_configure.properties_full_paht &gt; </td>
