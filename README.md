@@ -223,7 +223,7 @@ java
   -obt "7/9/2018 3:52 PM"
 ```
 
-2. List **ONLY** OpsCenter S3 backup items for the current node that runs this program that belong to C* keyspace "testks1" for the backup taken at 7/9/2018 3:52 PM
+2. List **Only** OpsCenter S3 backup items for the current node that runs this program that belong to C* keyspace "testks1" for the backup taken at 7/9/2018 3:52 PM
 ```
 java 
   -Daws.accessKeyId=<aws_accesskey_id> 
