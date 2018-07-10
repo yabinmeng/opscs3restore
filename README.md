@@ -92,12 +92,12 @@ The program needs a few Java options and parameters to work properly:
         </tr>
         <tr>
            <td> -k &lt;keyspace_name&gt; </td>
-           <td> Cassandra keyspace name </td>
+           <td> Download all OpsCenter S3 backup SSTables that belong to the specified keyspace. </td>
            <td> Yes </td>
         </tr>
         <tr>
            <td> -t &lt;table_name&gt; </td>
-           <td> <li> Cassandra table name </li> 
+           <td> <li> Download all OpsCenter S3 backup SSTables that belong to the specified table. </li> 
                 <li> When not specified, all Cassandra tables under the specified keyspace will be downloaded. </li>
            </td>
            <td> No </td>
