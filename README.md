@@ -47,9 +47,9 @@ The program needs a few Java options and parameters to work properly:
 <table>
     <thead>
         <tr>
-            <th width=45%>Java Option or Parameter</th>
-            <th width=40%>Description</th>
-            <th width=5%>Mandatory</th>
+            <th width=42.5%>Java Option or Parameter</th>
+            <th width=42.5%>Description</th>
+            <th width=5%>Mandatory?</th>
         </tr>
     </thead>
     <tbody>
@@ -90,6 +90,13 @@ The program needs a few Java options and parameters to work properly:
            <td> Cassandra keyspace name </td>
            <td> Yes </td>
         </tr>
+        <tr>
+           <td> -k &lt;keyspace_name&gt; </td>
+           <td> <li> Cassandra table name </li> 
+                <li> When not specified, all Cassandra tables under the specified keyspace will be downloaded. </li>
+           </td>
+           <td> No </td>
+         </tr>
     </tbody>
 </table>
 </br>
