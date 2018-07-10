@@ -132,9 +132,19 @@ The program needs a few Java options and parameters to work properly:
 </table>
 </br>
 
-## 2.2. Filter OpsCenter S3 backup SSTables by backup_time, keyspace, and table
+## 2.2. Filter OpsCenter S3 backup SSTables by keyspace, table, and backup_time
 
+This utility allows you to download OpsCenter s3 backup SSTables further by the following categories:
+1. Cassandra keyspace name that the SSTables belong to ("-k" option, Mandtory)
+2. Cassandra table name that the SSTables belong to ("-t" option, Optional)
+3. OpsCenter backup time ("-obt" option, Mandatory)  
 
+If Cassandra table name is not specified, then all SSTables belonging to all tables under the specified keyspace will be downloaded.
+
+When specifiying OpsCenter backup time, it <b>MUST</b> be 
+- In format <b>M/d/yyyy h:m a</b> (an example: 7/9/2018 3:52 PM)
+- Must match the OpsCenter backup time from OpsCenter WebUI, as highlighted in the example screenshot below:
+  ![](resources/Screen%20Shot%202018-07-09%20at%2022.21.18.png?raw=true)
 
 
 ## 2.3. Examples
