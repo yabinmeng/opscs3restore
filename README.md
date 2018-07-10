@@ -69,7 +69,12 @@ The program needs a few Java options and parameters to work properly:
             <td> List S3 backup items on the commandline output: <br/>
                 <li> all -- list the S3 backup items for all nodes in the cluster </li>
                 <li> DC:"&lt;DC_name&gt;" -- list the S3 backup items of all nodes in a specified DC </li>
-                <li> me[:"&lt;dsenode_host_id_string&gt;"] -- list the S3 bckup item just for 1) myself (the node that runs this program - IP matching); or 2) for any DSE node with its host ID provided as second parameter for this option. </li>
+                <li> me[:"&lt;dsenode_host_id_string&gt;"] -- list the S3 bckup item just for 
+                   <ul> 
+                      <li> myself (the node that runs this program - IP matching) </li> 
+                      <li> for any DSE node with its host ID provided as second parameter for this option. </li>
+                   </ul>
+               </li>
              <td> Yes </td>
         </tr>
         <tr>
@@ -91,9 +96,22 @@ The program needs a few Java options and parameters to work properly:
            <td> Yes </td>
         </tr>
         <tr>
-           <td> -k &lt;keyspace_name&gt; </td>
+           <td> -t &lt;table_name&gt; </td>
            <td> <li> Cassandra table name </li> 
                 <li> When not specified, all Cassandra tables under the specified keyspace will be downloaded. </li>
+           </td>
+           <td> No </td>
+         </tr>
+         <tr>
+           <td> -obt &lt;opsCenter_backup_time&gt; </td>
+            <td> OpsCenter backup time (must be in format <b>M/d/yyyy h:m a</b>) </li>
+           </td>
+           <td> Yes </td>
+         </tr>
+         <tr>
+           <td> -cls &lt;true|false&gt; </td>
+           <td> Whether to clear target download directory (default: false)
+                When not specified, all Cassandra tables under the specified keyspace will be downloaded.
            </td>
            <td> No </td>
          </tr>
