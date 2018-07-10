@@ -41,7 +41,7 @@ opsc_s3_bucket_name: ymeng-dse-s3-test
 ```
 java 
   [-Daws.accessKeyId=<your_aws_access_key>] 
-  ]-Daws.secretKey=<your_aws_secret_key>] 
+  [-Daws.secretKey=<your_aws_secret_key>] 
   -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
   -l <all|DC:"<DC_name>"|>me[:"<dsenode_host_id_string>"]> 
   -f <opsc_s3_configure.properties_full_paht> 
