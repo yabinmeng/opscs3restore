@@ -60,8 +60,8 @@ The program needs a few Java options and parameters to work properly:
 <table>
     <thead>
         <tr>
-            <th width=41.5%>Java Option or Parameter</th>
-            <th width=43.5%>Description</th>
+            <th width=42%>Java Option or Parameter</th>
+            <th width=43%>Description</th>
             <th width=5%>Mandatory?</th>
         </tr>
     </thead>
