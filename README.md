@@ -24,7 +24,7 @@ The second step of this approach is very straightforward. But when it comes to t
 
 **[Fast S3 Backup Data Download Utility]**
 
-1. Download the most recent release of .jar file from [here](https://github.com/yabinmeng/opscs3restore/releases/download/2.0/DseAWSRestore-2.0-SNAPSHOT.jar)
+1. Download the most recent release (version 2.0) of .jar file from [here](https://github.com/yabinmeng/opscs3restore/releases/download/2.0/DseAWSRestore-2.0-SNAPSHOT.jar)
 
 2. Download the example configuration file (opsc_s3_config.properties) from [here](https://github.com/yabinmeng/opscs3restore/blob/master/src/main/resources/opsc_s3_config.properties)
 
@@ -42,7 +42,7 @@ opsc_s3_bucket_name: ymeng-dse-s3-test
 java 
   [-Daws.accessKeyId=<your_aws_access_key>] 
   [-Daws.secretKey=<your_aws_secret_key>] 
-  -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
+  -jar ./DseAWSRestore-2.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
   -l <all|DC:"<DC_name>"|>me[:"<dsenode_host_id_string>"]> 
   -f <opsc_s3_configure.properties_full_paht> 
   -d <max_concurrent_downloading_thread_num> 
