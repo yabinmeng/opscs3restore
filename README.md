@@ -248,3 +248,57 @@ java
   -obt "7/9/2018 3:52 PM"
   -cls true
 ```
+
+The utility command line output for example 3 above is something like below:
+```
+List and download OpsCenter S3 backup items for specified host (10409aec-241c-4a79-a707-2d3e4951dbf6) ...
+ - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/opscenter_adhoc_2018-07-09-15-52-06-UTC/backup.json (size = 4086 bytes)
+   ... download complete: 4086 of 4086 bytes transferred (100.00%)
+ - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/opscenter_adhoc_2018-07-09-15-52-06-UTC/testks/schema.json (size = 2039 bytes)
+   ... download complete: 2039 of 2039 bytes transferred (100.00%)
+ - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/opscenter_adhoc_2018-07-09-15-52-06-UTC/testks1/schema.json (size = 1187 bytes)
+   ... download complete: 1187 of 1187 bytes transferred (100.00%)
+
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/830be0b989458a7cc65257332109d5fc-mc-1-big-CompressionInfo.db (size = 43 bytes) [keyspace: testks; table: singers]
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/830be0b989458a7cc65257332109d5fc-mc-1-big-Data.db (size = 123 bytes) [keyspace: testks; table: singers]
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/830be0b989458a7cc65257332109d5fc-mc-1-big-Filter.db (size = 16 bytes) [keyspace: testks; table: singers]
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/830be0b989458a7cc65257332109d5fc-mc-1-big-Index.db (size = 60 bytes) [keyspace: testks; table: singers]
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/830be0b989458a7cc65257332109d5fc-mc-1-big-Statistics.db (size = 4611 bytes) [keyspace: testks; table: singers]
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/830be0b989458a7cc65257332109d5fc-mc-1-big-Summary.db (size = 92 bytes) [keyspace: testks; table: singers]
+  Creating thread with ID 0 (6).
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/d33116f6603946089a7fd536e4e5aa1f-mc-1-big-CompressionInfo.db (size = 43 bytes) [keyspace: testks; table: songs]
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/d33116f6603946089a7fd536e4e5aa1f-mc-1-big-Data.db (size = 261 bytes) [keyspace: testks; table: songs]
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/d33116f6603946089a7fd536e4e5aa1f-mc-1-big-Filter.db (size = 24 bytes) [keyspace: testks; table: songs]
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/d33116f6603946089a7fd536e4e5aa1f-mc-1-big-Index.db (size = 123 bytes) [keyspace: testks; table: songs]
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/d33116f6603946089a7fd536e4e5aa1f-mc-1-big-Statistics.db (size = 4739 bytes) [keyspace: testks; table: songs]
+  - snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/d33116f6603946089a7fd536e4e5aa1f-mc-1-big-Summary.db (size = 92 bytes) [keyspace: testks; table: songs]
+  Creating thread with ID 1 (6).
+   - Starting thread 1 at: 2018-07-10 04:16:05
+   - Starting thread 0 at: 2018-07-10 04:16:05
+     [Thread 1] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/d33116f6603946089a7fd536e4e5aa1f-mc-1-big-CompressionInfo.db[keyspace: testks; table: songs]" completed
+        >>> 43 of 43 bytes transferred (100.00%)
+     [Thread 0] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/830be0b989458a7cc65257332109d5fc-mc-1-big-CompressionInfo.db[keyspace: testks; table: singers]" completed
+        >>> 43 of 43 bytes transferred (100.00%)
+     [Thread 1] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/d33116f6603946089a7fd536e4e5aa1f-mc-1-big-Data.db[keyspace: testks; table: songs]" completed
+        >>> 261 of 261 bytes transferred (100.00%)
+     [Thread 0] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/830be0b989458a7cc65257332109d5fc-mc-1-big-Data.db[keyspace: testks; table: singers]" completed
+     [Thread 1] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/d33116f6603946089a7fd536e4e5aa1f-mc-1-big-Filter.db[keyspace: testks; table: songs]" completed
+        >>> 123 of 123 bytes transferred (100.00%)
+        >>> 24 of 24 bytes transferred (100.00%)
+     [Thread 0] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/830be0b989458a7cc65257332109d5fc-mc-1-big-Filter.db[keyspace: testks; table: singers]" completed
+        >>> 16 of 16 bytes transferred (100.00%)
+     [Thread 1] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/d33116f6603946089a7fd536e4e5aa1f-mc-1-big-Index.db[keyspace: testks; table: songs]" completed
+        >>> 123 of 123 bytes transferred (100.00%)
+     [Thread 0] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/830be0b989458a7cc65257332109d5fc-mc-1-big-Index.db[keyspace: testks; table: singers]" completed
+        >>> 60 of 60 bytes transferred (100.00%)
+     [Thread 1] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/d33116f6603946089a7fd536e4e5aa1f-mc-1-big-Statistics.db[keyspace: testks; table: songs]" completed
+        >>> 4739 of 4739 bytes transferred (100.00%)
+     [Thread 0] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/830be0b989458a7cc65257332109d5fc-mc-1-big-Statistics.db[keyspace: testks; table: singers]" completed
+        >>> 4611 of 4611 bytes transferred (100.00%)
+     [Thread 1] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/d33116f6603946089a7fd536e4e5aa1f-mc-1-big-Summary.db[keyspace: testks; table: songs]" completed
+        >>> 92 of 92 bytes transferred (100.00%)
+   - Existing Thread 1 at 2018-07-10 04:16:06 (duration: 1 seconds): 6 of 6 s3 objects downloaded, 0 failed.
+     [Thread 0] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/830be0b989458a7cc65257332109d5fc-mc-1-big-Summary.db[keyspace: testks; table: singers]" completed
+        >>> 92 of 92 bytes transferred (100.00%)
+   - Existing Thread 0 at 2018-07-10 04:16:06 (duration: 1 seconds): 6 of 6 s3 objects downloaded, 0 failed.
+```
