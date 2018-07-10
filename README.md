@@ -70,7 +70,7 @@ The program needs a few Java options and parameters to work properly:
             <td> -Daws.accessKeyId=&lt; your_aws_access_key &gt; </td>
             <td rowspan=2> 
                 <li> AWS access credentials to access S3 bucket. </li>
-                <li> AWS default credential file (~/.aws/credentials) is also supported and takes precedence over the credential JVM options. </li>
+              <li> <b>AWS default credential file (~/.aws/credentials)</b> is also supported and <b>takes precedence</b> over the credential JVM options. </li>
             </td>
             <td rowspan=2> No </td>
         </tr>
@@ -132,7 +132,12 @@ The program needs a few Java options and parameters to work properly:
 </table>
 </br>
 
-## 2.2. Examples
+## 2.2. Filter OpsCenter S3 backup SSTables by backup_time, keyspace, and table
+
+
+
+
+## 2.3. Examples
 
 1. List OpsCenter S3 backup items for all nodes in a cluster 
 ```
