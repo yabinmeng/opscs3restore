@@ -156,6 +156,8 @@ This utility is designed to be multi-threaded by nature to download multiple SST
 * mc-<#>-big-Statistics.db
 * mc-<#>-big-Summary.db
 
+**NOTE**: Currently this utility ONLY supports C* table with "mc" format (C* 3.0+/DSE 5.0/DSE5.1). It will be extended in the future to support other versions of formats.
+
 Each thread is downloading one SSTable set. Multiple threads can download multiple sets concurrently. The maximum number threads tha can concurrently download is determined by the value of <b>-d option</b>. If this option is not specified, then the utility only lists the OpsCenter S3 backup items without actually downloading it.
 
 When "-d <concurrent_downloading_thread_num>" option is provided, the downloaded OpsCenter S3 backup SSTables are organized locally in the following structure:
