@@ -235,7 +235,7 @@ java
   -obt "7/9/2018 3:52 PM"
 ```
 
-4. List and **Download** (with concurren downloading thread number 5) OpsCenter S3 backup items for a particular node that runs this program that belong to C* keyspace "testks" for the backup taken at 7/9/2018 3:52 PM. Local download directory is configured in "opsc_s3_config.properties" file and will be cleared before downloading.
+3. List and **Download** (with concurren downloading thread number 5) OpsCenter S3 backup items for a particular node that runs this program that belong to C* keyspace "testks" for the backup taken at 7/9/2018 3:52 PM. Local download directory is configured in "opsc_s3_config.properties" file and will be cleared before downloading.
 ```
 java 
   -Daws.accessKeyId=<aws_accesskey_id> 
