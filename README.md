@@ -24,7 +24,7 @@ The second step of this approach is very straightforward. But when it comes to t
 
 **[Fast S3 Backup Data Download Utility]**
 
-1. Download the most recent release of .jar file from [here](https://github.com/yabinmeng/opscs3restore/releases/download/1.0/DseAWSRestore-1.0-SNAPSHOT.jar)
+1. Download the most recent release of .jar file from [here](https://github.com/yabinmeng/opscs3restore/releases/download/2.0/DseAWSRestore-2.0-SNAPSHOT.jar)
 
 2. Download the example configuration file (opsc_s3_config.properties) from [here](https://github.com/yabinmeng/opscs3restore/blob/master/src/main/resources/opsc_s3_config.properties)
 
@@ -39,7 +39,7 @@ opsc_s3_bucket_name: ymeng-dse-s3-test
 
 3. Run the program, providing the proper java options and arguments.
 ```
-java -Daws.accessKeyId=<your_aws_access_key> -Daws.secretKey=<your_aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l <all|DC:"<DC_name>"|>me[:"<dsenode_host_id_string>"]> -f <opsc_s3_configure.properties_full_paht> -d <max_concurrent_downloading_thread_num>
+java -Daws.accessKeyId=<your_aws_access_key> -Daws.secretKey=<your_aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l <all|DC:"<DC_name>"|>me[:"<dsenode_host_id_string>"]> -f <opsc_s3_configure.properties_full_paht> -d <max_concurrent_downloading_thread_num> -k <keyspace_name> [-t <table_name>] -obt <opscenter_backup_time> [-cls <true|false>]
 ```
 
 The program needs a few Java options and parameters to work properly:
@@ -48,7 +48,8 @@ The program needs a few Java options and parameters to work properly:
     <thead>
         <tr>
             <th width=45%>Java Option or Parameter</th>
-            <th>Description</th>
+            <th width=40%>Description</th>
+            <th width=5%>Mandatory</th>
         </tr>
     </thead>
     <tbody>
@@ -58,6 +59,7 @@ The program needs a few Java options and parameters to work properly:
                 <li> AWS access credentials to access S3 bucket. </li>
                 <li> AWS default credential file (~/.aws/credentials) is also supported and takes precedence over the credential JVM options. </li>
             </td>
+            <td rowspan=2> No </td>
         </tr>
         <tr>
             <td> -Daws.secretKey=&lt; your_aws_secret_key &gt; </td>
@@ -68,16 +70,25 @@ The program needs a few Java options and parameters to work properly:
                 <li> all -- list the S3 backup items for all nodes in the cluster </li>
                 <li> DC:"&lt;DC_name&gt;" -- list the S3 backup items of all nodes in a specified DC </li>
                 <li> me[:"&lt;dsenode_host_id_string&gt;"] -- list the S3 bckup item just for 1) myself (the node that runs this program - IP matching); or 2) for any DSE node with its host ID provided as second parameter for this option. </li>
+             <td> Yes </td>
         </tr>
         <tr>
             <td> -f &lt; opsc_s3_configure.properties_full_paht &gt; </td>
             <td> The full file path of "opsc_s3_configure.properties" file. </td>
+            <td> Yes </td>
         </tr>
         <tr>
-            <td> -d &lt; max_concurrent_downloading_thread_num &gt; </td>
+            <td> -d &lt;max_concurrent_downloading_thread_num &gt; </td>
             <td> 
                 <li> <b>ONLY works with "-l me" option; which means "-l all" and "-l DC" options are just for display purpose</b> </li>
                 <li> &lt; max_concurrent_downloading_thread_num &gt; represents the number of threads (Max 10) that can concurrently download S3 backup sstable sets. </li>
+           </td>
+           <td> No </td>
+        </tr>
+        <tr>
+           <td> -k &lt;keyspace_name&gt; </td>
+           <td> Cassandra keyspace name </td>
+           <td> Yes </td>
         </tr>
     </tbody>
 </table>
