@@ -47,7 +47,7 @@ java
   [-Daws.secretKey=<your_aws_secret_key>] 
   -jar ./DseAWSRestore-2.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
   -l <all|DC:"<DC_name>"|>me[:"<dsenode_host_id_string>"]> 
-  -f <opsc_s3_configure.properties_full_paht> 
+  -c <opsc_s3_configure.properties_full_paht> 
   -d <concurrent_downloading_thread_num> 
   -k <keyspace_name> 
   [-t <table_name>] 
@@ -91,7 +91,7 @@ The program needs a few Java options and parameters to work properly:
              <td> Yes </td>
         </tr>
         <tr>
-            <td> -f &lt; opsc_s3_configure.properties_full_paht &gt; </td>
+            <td> -c &lt; opsc_s3_configure.properties_full_paht &gt; </td>
             <td> The full file path of "opsc_s3_configure.properties" file. </td>
             <td> Yes </td>
         </tr>
@@ -218,7 +218,7 @@ java
   -Daws.accessKeyId=<aws_accesskey_id> 
   -Daws.secretKey=<aws_secret_key> 
   -jar ./DseAWSRestore-2.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
-  -f ./opsc_s3_config.properties
+  -c ./opsc_s3_config.properties
   -l all 
   -k testks 
   -t songs 
@@ -231,7 +231,7 @@ java
   -Daws.accessKeyId=<aws_accesskey_id> 
   -Daws.secretKey=<aws_secret_key> 
   -jar ./DseAWSRestore-2.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
-  -f ./opsc_s3_config.properties
+  -c ./opsc_s3_config.properties
   -l me
   -k testks1 
   -obt "7/9/2018 3:52 PM"
@@ -243,7 +243,7 @@ java
   -Daws.accessKeyId=<aws_accesskey_id> 
   -Daws.secretKey=<aws_secret_key> 
   -jar ./DseAWSRestore-2.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
-  -f ./opsc_s3_config.properties 
+  -c ./opsc_s3_config.properties 
   -l me:"10409aec-241c-4a79-a707-2d3e4951dbf6" 
   -d 5
   -k testks
