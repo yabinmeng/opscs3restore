@@ -9,13 +9,13 @@ S3 bucket and once it is done, it kicks of "sstableloader" to bulk-loading data 
 
 This approach has pros an cons: 
 - The biggest pro is that it can tolerate DSE topology change, which means that the backup data can be restored to 1) the same cluster without any topology change; 2) the same cluster with some topology change; or 3) a brand new cluster.
-- A major downside is that it is going to consume extra disk space (and extra disk and network I/O bandwith) in order to complete the whole process. For a keyspace with replication factor N (N > 1, normally 3 or above), it causes N times of the backup data to be ingested into he cluster. Although over the time, the C* compaction process will address the issue. But still, a lot of data has been transmitted over the network and processed in the system.
+- A major downside is that it is going to consume extra disk space (and extra disk and network I/O bandwith) in order to complete the whole process. For a keyspace with replication factor N (N > 1, normally 3 or above), it causes N times of the backup data to be ingested into the cluster. Although over the time, the C* compaction process will address the issue; but still, a lot of data has been transmitted over the network and processed in the system.
 
 
 # 2. Solution Overview and Usage Description
 
-In many cases, when there is **NO DSE cluster topology change**, a much faster approach (compared with approach we discussed in section 1.1) would be to
-1) Simply copy the backup data to its corresponding DSE node, under the right C* keyspace/table (file system) folder
+In many cases, when there is **NO DSE cluster topology change**, a much faster approach (compared with approach we discussed above) would be to
+1) Simply copy the backup data to its corresponding DSE node, under the right C* keyspace/table (file system) data directory
 2) Once the data is copied, either restart DSE node or run "nodetool refresh" command (no restart needed) to pick up the data-to-be-retored in DSE cluster.
 
 The second step of this approach is very straightforward. But when it comes to the first step of fetching corresponding DSE node backup data from a S3 bucket, there is NO ready-to-use tool that can help. The goal of this code repository is to provide such a utility that can help user to fast (multi-threaded) download DSE node specific backup items from S3 to a local directory. 
@@ -28,7 +28,7 @@ The second step of this approach is very straightforward. But when it comes to t
 
 2. Download the example configuration file (opsc_s3_config.properties) from [here](https://github.com/yabinmeng/opscs3restore/blob/master/src/main/resources/opsc_s3_config.properties)
 
-   The example configuration file includes 4 items to configure. These items are quite straightforward and self-explanatory!
+   The example configuration file includes 4 items to configure. These items are quite straightforward and self-explanatory. Please update accordingly to your use case!
 ```
 dse_contact_point: 127.0.0.1
 local_download_home: ./s3_download_test
@@ -39,7 +39,7 @@ opsc_s3_bucket_name: ymeng-dse-s3-test
 
 3. Run the program, providing the proper java options and arguments.
 ```
-java -Daws.accessKeyId=<your_aws_access_key> -Daws.secretKey=<your_aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l <all|DC:"<DC_name>"|>me> -f <opsc_s3_configure.properties_full_paht> -d <max_concurrent_downloading_thread_num>
+java -Daws.accessKeyId=<your_aws_access_key> -Daws.secretKey=<your_aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l <all|DC:"<DC_name>"|>me[:"<dsenode_host_id_string>"]> -f <opsc_s3_configure.properties_full_paht> -d <max_concurrent_downloading_thread_num>
 ```
 
 The program needs a few Java options and parameters to work properly:
@@ -63,11 +63,11 @@ The program needs a few Java options and parameters to work properly:
             <td> -Daws.secretKey=&lt; your_aws_secret_key &gt; </td>
         </tr>
         <tr> 
-            <td> -l &lt; all | DC:"&lt;DC_name&gt;" | me &gt; </td>
+            <td> -l &lt; all | DC:"&lt;DC_name&gt;" | me[:"&lt;dsenode_host_id_string&gt;"] </td>
             <td> List S3 backup items on the commandline output: <br/>
                 <li> all -- list the S3 backup items for all nodes in the cluster </li>
                 <li> DC:"&lt;DC_name&gt;" -- list the S3 backup items of all nodes in a specified DC </li>
-                <li> me[:"&lt;<dsenode_host_id_string>] -- list the S3 bckup item just for 1) myself (the node that runs this program - IP matching); or 2) for any DSE node with its host ID provided as second parameter for this option. </li>
+                <li> me[:"&lt;dsenode_host_id_string&gt;"] -- list the S3 bckup item just for 1) myself (the node that runs this program - IP matching); or 2) for any DSE node with its host ID provided as second parameter for this option. </li>
         </tr>
         <tr>
             <td> -f &lt; opsc_s3_configure.properties_full_paht &gt; </td>
@@ -76,7 +76,7 @@ The program needs a few Java options and parameters to work properly:
         <tr>
             <td> -d &lt; max_concurrent_downloading_thread_num &gt; </td>
             <td> 
-                <li> ONLY works with "-l me" option; which means "-l all" and "-l DC" options are just for display purpose </li>
+                <li> <b>ONLY works with "-l me" option; which means "-l all" and "-l DC" options are just for display purpose</b> </li>
                 <li> &lt; max_concurrent_downloading_thread_num &gt; represents the number of threads (Max 10) that can concurrently download S3 backup sstable sets. </li>
         </tr>
     </tbody>
