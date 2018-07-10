@@ -144,7 +144,7 @@ If Cassandra table name is not specified, then all SSTables belonging to all tab
 When specifiying OpsCenter backup time, it <b>MUST</b> be 
 - In format <b>M/d/yyyy h:m a</b> (an example: 7/9/2018 3:52 PM)
 - Must match the OpsCenter backup time from OpsCenter WebUI, as highlighted in the example screenshot below:
-  ![](resources/Screen%20Shot%202018-07-09%20at%2022.21.18.png?raw=true)
+  <img src="src/main/images/Screen%20Shot%202018-07-09%20at%2022.21.18.png" width="250px"/>
 
 
 ## 2.3. Examples
