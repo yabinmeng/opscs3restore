@@ -39,7 +39,17 @@ opsc_s3_bucket_name: ymeng-dse-s3-test
 
 3. Run the program, providing the proper java options and arguments.
 ```
-java -Daws.accessKeyId=<your_aws_access_key> -Daws.secretKey=<your_aws_secret_key> -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore -l <all|DC:"<DC_name>"|>me[:"<dsenode_host_id_string>"]> -f <opsc_s3_configure.properties_full_paht> -d <max_concurrent_downloading_thread_num> -k <keyspace_name> [-t <table_name>] -obt <opscenter_backup_time> [-cls <true|false>]
+java 
+  [-Daws.accessKeyId=<your_aws_access_key>] 
+  ]-Daws.secretKey=<your_aws_secret_key>] 
+  -jar ./DseAWSRestore-1.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
+  -l <all|DC:"<DC_name>"|>me[:"<dsenode_host_id_string>"]> 
+  -f <opsc_s3_configure.properties_full_paht> 
+  -d <max_concurrent_downloading_thread_num> 
+  -k <keyspace_name> 
+  [-t <table_name>] 
+  -obt <opscenter_backup_time> 
+  [-cls <true|false>]
 ```
 
 The program needs a few Java options and parameters to work properly:
