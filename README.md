@@ -48,7 +48,7 @@ java
   -jar ./DseAWSRestore-2.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
   -l <all|DC:"<DC_name>"|>me[:"<dsenode_host_id_string>"]> 
   -f <opsc_s3_configure.properties_full_paht> 
-  -d <max_concurrent_downloading_thread_num> 
+  -d <concurrent_downloading_thread_num> 
   -k <keyspace_name> 
   [-t <table_name>] 
   -obt <opscenter_backup_time> 
@@ -99,7 +99,7 @@ The program needs a few Java options and parameters to work properly:
             <td> -d &lt;max_concurrent_downloading_thread_num &gt; </td>
             <td> 
                 <li> <b>ONLY works with "-l me" option; which means "-l all" and "-l DC" options are just for display purpose</b> </li>
-                <li> &lt; max_concurrent_downloading_thread_num &gt; represents the number of threads (default 5 if not specified) that can concurrently download S3 backup sstable sets. </li>
+                <li> &lt; concurrent_downloading_thread_num &gt; represents the number of threads (default 5 if not specified) that can concurrently download S3 backup sstable sets. </li>
            </td>
            <td> No </td>
         </tr>
@@ -146,8 +146,66 @@ When specifiying OpsCenter backup time, it <b>MUST</b> be
 - Must match the OpsCenter backup time from OpsCenter WebUI, as highlighted in the example screenshot below:
   <img src="src/main/images/Screen%20Shot%202018-07-09%20at%2022.21.18.png" width="250px"/>
 
+## 2.3. Multi-threaded Download and Local Download Folder Structure
 
-## 2.3. Examples
+This utility is designed to be multi-threaded by nature to download multiple SSTable sets. When I say one SSTable set, it refers to the following files together:
+* mc-<#>-big-CompresssionInfo.db
+* mc-<#>-big-Data.db
+* mc-<#>-big-Filter.db
+* mc-<#>-big-Index.db
+* mc-<#>-big-Statistics.db
+* mc-<#>-big-Summary.db
+
+Each thread is downloading one SSTable set. Multiple threads can download multiple sets concurrently. The maximum number threads tha can concurrently download is determined by the value of <b>-d option</b>. If this option is not specified, then the utility only lists the OpsCenter S3 backup items without actually downloading it.
+
+When "-d <concurrent_downloading_thread_num>" option is provided, the downloaded OpsCenter S3 backup SSTables are organized locally in the following structure:
+
+<text><b> &lt;local_download_home&gt;/snapshots/&lt;DSE_host_id&gt;/sstables/&lt;keyspace&gt;/&lt;table&gt;/mc-&lt;#&gt;-big-xxx.db </b></text>. An example is demonstrated below:
+
+```
+s3_download_test/
+└── snapshots
+    └── 53db322b-7d09-421c-b189-0d5aa9dc0e44
+        ├── opscenter_adhoc_2018-07-09-15-52-06-UTC
+        │   ├── backup.json
+        │   ├── testks
+        │   │   └── schema.json
+        │   └── testks1
+        │       └── schema.json
+        └── sstables
+            ├── testks
+            │   ├── singers
+            │   │   ├── mc-1-big-CompressionInfo.db
+            │   │   ├── mc-1-big-Data.db
+            │   │   ├── mc-1-big-Filter.db
+            │   │   ├── mc-1-big-Index.db
+            │   │   ├── mc-1-big-Statistics.db
+            │   │   └── mc-1-big-Summary.db
+            │   └── songs
+            │       ├── mc-2-big-CompressionInfo.db
+            │       ├── mc-2-big-Data.db
+            │       ├── mc-2-big-Filter.db
+            │       ├── mc-2-big-Index.db
+            │       ├── mc-2-big-Statistics.db
+            │       ├── mc-2-big-Summary.db
+            │       ├── mc-3-big-CompressionInfo.db
+            │       ├── mc-3-big-Data.db
+            │       ├── mc-3-big-Filter.db
+            │       ├── mc-3-big-Index.db
+            │       ├── mc-3-big-Statistics.db
+            │       └── mc-3-big-Summary.db
+            └── testks1
+                └── testtbl
+                    ├── mc-1-big-CompressionInfo.db
+                    ├── mc-1-big-Data.db
+                    ├── mc-1-big-Filter.db
+                    ├── mc-1-big-Index.db
+                    ├── mc-1-big-Statistics.db
+                    └── mc-1-big-Summary.db
+```
+
+
+## 2.4. Examples
 
 1. List OpsCenter S3 backup items for all nodes in a cluster 
 ```
