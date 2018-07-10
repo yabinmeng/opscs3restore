@@ -8,7 +8,10 @@ When we use OpsCener Service to restore backup data from S3, behind the scene it
 S3 bucket and once it is done, it kicks of "sstableloader" to bulk-loading data into DSE cluster. It repeats the same process until all backup data in S3 bucket has been processed.
 
 This approach has pros an cons: 
-- The biggest pro is that it can tolerate DSE topology change, which means that the backup data can be restored to 1) the same cluster without any topology change; 2) the same cluster with some topology change; or 3) a brand new cluster.
+- The biggest pro is that it can tolerate DSE topology change, which means that the backup data can be restored to:
+  1) the same cluster without any topology change; or
+  2) the same cluster with some topology change; or
+  3) a brand new cluster.
 - A major downside is that it is going to consume extra disk space (and extra disk and network I/O bandwith) in order to complete the whole process. For a keyspace with replication factor N (N > 1, normally 3 or above), it causes N times of the backup data to be ingested into the cluster. Although over the time, the C* compaction process will address the issue; but still, a lot of data has been transmitted over the network and processed in the system.
 
 
@@ -96,7 +99,7 @@ The program needs a few Java options and parameters to work properly:
             <td> -d &lt;max_concurrent_downloading_thread_num &gt; </td>
             <td> 
                 <li> <b>ONLY works with "-l me" option; which means "-l all" and "-l DC" options are just for display purpose</b> </li>
-                <li> &lt; max_concurrent_downloading_thread_num &gt; represents the number of threads (Max 10) that can concurrently download S3 backup sstable sets. </li>
+                <li> &lt; max_concurrent_downloading_thread_num &gt; represents the number of threads (default 5 if not specified) that can concurrently download S3 backup sstable sets. </li>
            </td>
            <td> No </td>
         </tr>
