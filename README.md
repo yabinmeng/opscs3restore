@@ -4,15 +4,15 @@ DataStax OpsCenter simplifies the task of backup and restore of data out of a DS
 
 **==Restore Challenge==**
 
-When we use OpsCener Service to restore backup data from S3, behind the scene it utilizes the traditional Cassandra "sstableloader" utility. Simply speaking, OpsCenter server, through datatax-agent on each DSE node, fetches backup data from 
+When we use OpsCener Service to restore backup data from S3, behind the scenes it utilizes the traditional Cassandra "sstableloader" utility. Simply speaking, OpsCenter server, through datatax-agent on each DSE node, fetches backup data from 
 S3 bucket and once it is done, it kicks of "sstableloader" to bulk-loading data into DSE cluster. It repeats the same process until all backup data in S3 bucket has been processed.
 
-This approach has pros an cons: 
+This approach has pros and cons: 
 - The biggest pro is that it can tolerate DSE topology change, which means that the backup data can be restored to:
   1) the same cluster without any topology change; or
   2) the same cluster with some topology change; or
   3) a brand new cluster.
-- A major downside is that it is going to consume extra disk space (and extra disk and network I/O bandwith) in order to complete the whole process. For a keyspace with replication factor N (N > 1, normally 3 or above), it causes N times of the backup data to be ingested into the cluster. Although over the time, the C* compaction process will address the issue; but still, a lot of data has been transmitted over the network and processed in the system.
+- A major downside is that it is going to consume extra disk space (and extra disk and network I/O bandwith) in order to complete the whole process. For a keyspace with replication factor N (N > 1, normally 3 or above), it causes N times of the backup data to be ingested into the cluster. Although over time, the C* compaction process will address the issue; but still, a lot of data has been transmitted over the network and processed in the system.
 
 
 # 2. Solution Overview and Usage Description
@@ -47,7 +47,7 @@ java
   [-Daws.secretKey=<your_aws_secret_key>] 
   -jar ./DseAWSRestore-2.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
   -l <all|DC:"<DC_name>"|>me[:"<dsenode_host_id_string>"]> 
-  -c <opsc_s3_configure.properties_full_paht> 
+  -c <opsc_s3_configure.properties_full_path> 
   -d <concurrent_downloading_thread_num> 
   -k <keyspace_name> 
   [-t <table_name>] 
@@ -158,7 +158,7 @@ This utility is designed to be multi-threaded by nature to download multiple SST
 
 **NOTE**: Currently this utility ONLY supports C* table with "mc" format (C* 3.0+/DSE 5.0/DSE5.1). It will be extended in the future to support other versions of formats.
 
-Each thread is downloading one SSTable set. Multiple threads can download multiple sets concurrently. The maximum number threads tha can concurrently download is determined by the value of <b>-d option</b>. If this option is not specified, then the utility only lists the OpsCenter S3 backup items without actually downloading it.
+Each thread is downloading one SSTable set. Multiple threads can download multiple sets concurrently. The maximum number threads that can concurrently download is determined by the value of <b>-d option</b>. If this option is not specified, then the utility only lists the OpsCenter S3 backup items without actually downloading it.
 
 When "-d <concurrent_downloading_thread_num>" option is provided, the downloaded OpsCenter S3 backup SSTables are organized locally in the following structure:
 
@@ -237,7 +237,7 @@ java
   -obt "7/9/2018 3:52 PM"
 ```
 
-3. List and **Download** (with concurren downloading thread number 5) OpsCenter S3 backup items for a particular node that runs this program and belong to C* keyspace "testks" for the backup taken at 7/9/2018 3:52 PM. Local download directory is configured in "opsc_s3_config.properties" file and will be cleared before downloading.
+3. List and **Download** (with concurrent downloading thread number 5) OpsCenter S3 backup items for a particular node that runs this program and belong to C* keyspace "testks" for the backup taken at 7/9/2018 3:52 PM. Local download directory is configured in "opsc_s3_config.properties" file and will be cleared before downloading.
 ```
 java 
   -Daws.accessKeyId=<aws_accesskey_id> 
