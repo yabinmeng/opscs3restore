@@ -135,7 +135,7 @@ The program needs a few Java options and parameters to work properly:
 ## 2.2. Filter OpsCenter S3 backup SSTables by keyspace, table, and backup_time
 
 This utility allows you to download OpsCenter s3 backup SSTables further by the following categories:
-1. Cassandra keyspace name that the SSTables belong to ("-k" option, Mandtory)
+1. Cassandra keyspace name that the SSTables belong to ("-k" option, Mandatory)
 2. Cassandra table name that the SSTables belong to ("-t" option, Optional)
 3. OpsCenter backup time ("-obt" option, Mandatory)  
 
