@@ -155,7 +155,33 @@ The program needs a few Java options and parameters to work properly:
 </table>
 </br>
 
-## 2.2. Filter OpsCenter S3 backup SSTables by keyspace, table, and backup_time
+## 2.2. Utility configuration file 
+
+The utility configuration file includes several items to configure. 
+```
+dse_contact_point: <DSE_cluster_contact_point>
+local_download_home: <DSE_node_local_download_home_directory>
+nfs_backup_home: <absolute_path_of_NFS_backup_location>
+ip_matching_nic: <NIC_name_for_IP_matching>
+use_ssl: <true | false>
+user_auth: <true | false>
+file_size_chk: <true | false>
+```
+Most of these items are straightforward and I'll explain some of them a little bit more.
+
+* "dse_contact_point": When the utility needs to check DSE cluster metadata [-l ALL, -l DC:<DC_name>, -l me (no specific "dsenode_host_id_string")], it has to connecto to the DSE cluster in order to get the information. For these cases, an actively running DSE node IP should be provided here.
+
+* "local_download_home" and "nfs_backup_home": Please make sure using the absolute path for both the NFS backup location and the local download home directory! The Linux user that runs this utility needs to have read privilege on the NFS backup location as well as both read and write privilege on the local download directory.
+
+* "ip_matching_nic": When use -l me (no specific "dsenode_host_id_string") option, the utility automatically finds the correct DSE node host ID through IP matching. This parameter tells the utility which NIC name to use for IP matching. 
+
+* "use_ssl" is ONLY relevant when DSE client-to-node SSL/TLS encryption is enabled. When true, Java system properties "-Djavax.net.ssl.trustStore" and "-Djavax.net.ssl.trustStorePassword" must be provided.
+
+* "user_auth" is ONLY relevant when DSE authentication is enabled. When true, "-u <cassandra_user_name>" and "-p <cassandra_user_password>" options must be provided.
+
+* "file_size_chk": Whether to bypass backup file size check during the download. When setting to false (default), the utility doesn't check and display file size for each to-be-restored backup files. This can be beneficial for overall performance.
+
+## 2.3. Filter OpsCenter S3 backup SSTables by keyspace, table, and backup_time
 
 This utility allows you to download OpsCenter s3 backup SSTables further by the following categories:
 1. Cassandra keyspace name that the SSTables belong to ("-k" option, Mandatory)
@@ -169,7 +195,7 @@ When specifiying OpsCenter backup time, it <b>MUST</b> be
 - Matching the OpsCenter backup time from OpsCenter WebUI, as highlighted in the example screenshot below:
   <img src="src/main/images/Screen%20Shot%202018-07-09%20at%2022.21.18.png" width="250px"/>
 
-## 2.3. Multi-threaded Download and Local Download Folder Structure
+## 2.4. Multi-threaded Download and Local Download Folder Structure
 
 This utility is designed to be multi-threaded by nature to download multiple SSTable sets. When I say one SSTable set, it refers to the following files together:
 * mc-<#>-big-CompresssionInfo.db
@@ -179,13 +205,13 @@ This utility is designed to be multi-threaded by nature to download multiple SST
 * mc-<#>-big-Statistics.db
 * mc-<#>-big-Summary.db
 
-**NOTE**: Currently this utility ONLY supports C* table with "mc" format (C* 3.0+/DSE 5.0/DSE5.1). It will be extended in the future to support other versions of formats.
+**NOTE**: the "mc" part at the beginning represents SSTable format version which correspsonds to a particular Cassandra version (such as "la", "lb", "ma", "mb", "mc", etc.). This utility supports all DSE versions (and corresponding SSTable formats). 
 
-Each thread is downloading one SSTable set. Multiple threads can download multiple sets concurrently. The maximum number threads that can concurrently download is determined by the value of <b>-d option</b>. If this option is not specified, then the utility only lists the OpsCenter S3 backup items without actually downloading it.
+Each thread is downloading one SSTable set. Multiple threads can download multiple sets concurrently. The maximum number threads that can concurrently download is determined by the value of <b>-d option</b>. If this option is not specified, then the utility only lists the OpsCenter backup SSTables without actually downloading it.
 
-When "-d <concurrent_downloading_thread_num>" option is provided, the downloaded OpsCenter S3 backup SSTables are organized locally in the following structure:
-
-<text><b> &lt;local_download_home&gt;/snapshots/&lt;DSE_host_id&gt;/sstables/&lt;keyspace&gt;/&lt;table&gt;/mc-&lt;#&gt;-big-xxx.db </b></text>. 
+When "-d <concurrent_downloading_thread_num>" option is provided, the backup SSTables files will be downloaded (from NFS backup location) to the spcified local download home directory. The following 2 options determine how the local download home directory is organized:
+* The "-cls <true|false>" option controls whether to clear the local download home directory before starting downloading!
+* The "-nds <true|false>" option controls whether to maintain backup location folder structure underthe local download home directory. We maintain such structure by default in order to organize the recovered SSTables by keyspaces and tables. When this option has a "true" value (don't maintain the backup location folder structure), all restored SSTables are flattened out and put directly under the local download home directory. <b>In order to avoid possible SSTable name conflict among different keyspaces and/or tables. "-nds <true|false>" option ONLY works when you specify "-t" option.</b>
 
 An example is demonstrated below:
 
@@ -233,7 +259,7 @@ s3_download_test/
 
 The "-cls <true|false>" option controls whether to clear the local download directory before starting downloading!
 
-## 2.4. Examples
+## 2.5. Examples
 
 1. List **Only** OpsCenter S3 backup items for all nodes in a cluster that belong to C* table "testks.songs" (<keyspace.table>) for the backup taken at 7/9/2018 3:52 PM
 ```
