@@ -1,6 +1,8 @@
 package com.dsetools;
 
 import com.amazonaws.AmazonServiceException;
+import com.amazonaws.ClientConfiguration;
+import com.amazonaws.Protocol;
 import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -13,10 +15,8 @@ import com.amazonaws.services.s3.transfer.Download;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.TransferProgress;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.Host;
-import com.datastax.driver.core.Metadata;
-import com.datastax.driver.core.QueryOptions;
+import com.datastax.driver.core.*;
+import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.driver.dse.DseCluster;
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FileUtils;
@@ -27,7 +27,10 @@ import org.json.simple.JSONObject;
 import java.io.*;
 import java.net.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.*;
+import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
@@ -38,37 +41,43 @@ import java.util.concurrent.Executors;
 class S3ObjDownloadRunnable implements  Runnable {
     private int threadID;
     private TransferManager s3TransferManager;
+    private boolean fileSizeChk;
     private String s3BuketName;
     private String downloadHomeDir;
     private String[] s3ObjNames;
     private long[] s3ObjSizes;
     private String[] keyspaceNames;
     private String[] tableNames;
-    private String[] uniquifiers;
+    private String[] sstableVersions;
+    private boolean noTargetDirStruct;
 
     private DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     S3ObjDownloadRunnable( int tID,
                            TransferManager transferManager,
+                           boolean file_size_chk,
                            String s3bkt_name,
                            String download_dir,
                            String[] object_names,
                            long[] object_sizes,
                            String[] ks_names,
                            String[] tbl_names,
-                           String[] uniq_ids) {
+                           String[] sstable_versions,
+                           boolean no_dir_struct) {
         assert (tID > 0);
         assert (transferManager != null);
 
         this.threadID = tID;
         this.s3TransferManager = transferManager;
+        this.fileSizeChk = file_size_chk;
         this.s3BuketName = s3bkt_name;
         this.downloadHomeDir = download_dir;
         this.s3ObjNames = object_names;
         this.s3ObjSizes = object_sizes;
         this.keyspaceNames = ks_names;
         this.tableNames = tbl_names;
-        this.uniquifiers = uniq_ids;
+        this.sstableVersions = sstable_versions;
+        this.noTargetDirStruct = no_dir_struct;
 
         System.out.format("  Creating thread with ID %d (%d).\n", threadID, s3ObjNames.length);
     }
@@ -85,21 +94,23 @@ class S3ObjDownloadRunnable implements  Runnable {
 
         for ( int i = 0; i < s3ObjNames.length; i++ ) {
             try {
-                String realSStableName = null;
+                int sstblVersionStartPos = s3ObjNames[i].indexOf(sstableVersions[i]);
+                String realSStableName = s3ObjNames[i].substring(sstblVersionStartPos);
 
-                int mcFlagStartPos = s3ObjNames[i].indexOf(DseOpscS3RestoreUtils.CASSANDRA_SSTABLE_FILE_CODE);
-                realSStableName = s3ObjNames[i].substring(mcFlagStartPos);
-
-                String tmp = s3ObjNames[i].substring(0, mcFlagStartPos -1 );
+                String tmp = s3ObjNames[i].substring(0, sstblVersionStartPos -1 );
                 int lastPathSeperatorPos = tmp.lastIndexOf('/');
 
                 String parentPathStr = tmp.substring(0, lastPathSeperatorPos);
+                parentPathStr = parentPathStr.substring(parentPathStr.indexOf(DseOpscS3RestoreUtils.OPSC_OBJKEY_BASESTR));
 
                 File localFile = new File(downloadHomeDir + "/" +
-                    parentPathStr + "/" + keyspaceNames[i] + "/" +
-                    tableNames[i] + "/" + realSStableName);
+                    ( noTargetDirStruct ? "" :
+                        (parentPathStr + "/" + keyspaceNames[i] + "/" + tableNames[i] + "/") ) +
+                    realSStableName );
+
 
                 GetObjectRequest getObjectRequest = new GetObjectRequest(s3BuketName, s3ObjNames[i]);
+
                 Download s3Download = s3TransferManager.download(getObjectRequest, localFile);
 
                 // wait for download to complete
@@ -109,11 +120,14 @@ class S3ObjDownloadRunnable implements  Runnable {
 
                 System.out.format("     [Thread %d] download of \"%s\" completed \n", threadID,
                     s3ObjNames[i] + "[keyspace: " + keyspaceNames[i] + "; table: " + tableNames[i] + "]");
-                TransferProgress transferProgress = s3Download.getProgress();
-                System.out.format("        >>> %d of %d bytes transferred (%.2f%%)\n",
-                    transferProgress.getBytesTransferred(),
-                    s3ObjSizes[i],
-                    transferProgress.getPercentTransferred());
+
+                if (fileSizeChk) {
+                    TransferProgress transferProgress = s3Download.getProgress();
+                    System.out.format("        >>> %d of %d bytes transferred (%.2f%%)\n",
+                        transferProgress.getBytesTransferred(),
+                        s3ObjSizes[i],
+                        transferProgress.getPercentTransferred());
+                }
             }
             catch ( InterruptedException ie) {
                 System.out.format("     [Thread %d] download of \"%s\" interrupted\n", threadID,
@@ -147,289 +161,142 @@ class S3ObjDownloadRunnable implements  Runnable {
 
 public class DseOpscS3Restore {
 
-
-    /**
-     * Download a single S3 object to a local file.
-     *
-     * @param s3TransferManager
-     * @param localFilePath
-     * @param s3BukcetName
-     * @param s3ObjKeyName
-     */
-    static void downloadSingleS3Obj(TransferManager s3TransferManager,
-                                    String localFilePath,
-                                    String s3BukcetName,
-                                    String s3ObjKeyName,
-                                    long s3ObjeKeySize,
-                                    boolean printMsg) {
-        File localFile = new File(localFilePath);
-        GetObjectRequest getObjectRequest = new GetObjectRequest(s3BukcetName, s3ObjKeyName);
-        Download s3Download = s3TransferManager.download(getObjectRequest, localFile);
-
-        try {
-            // wait for download to complete
-            s3Download.waitForCompletion();
-        }
-        catch ( InterruptedException ie) {
-            if (printMsg) {
-                System.out.println("   ... Download of [" + s3BukcetName + "] " + s3ObjKeyName + " gets interrupted.");
-            }
-        }
-        catch ( Exception ex ) {
-            if (printMsg) {
-                System.out.println("   ... Download failed - unkown error.");
-            }
-            ex.printStackTrace();
-        }
-
-        TransferProgress transferProgress = s3Download.getProgress();
-        if (printMsg) {
-            System.out.format("   ... download complete: %d of %d bytes transferred (%.2f%%)\n",
-                transferProgress.getBytesTransferred(),
-                s3ObjeKeySize,
-                transferProgress.getPercentTransferred());
-        }
-    }
-
-
     private static Properties CONFIGPROP = null;
 
     /**
-     * List (and download) Opsc S3 backup objects for a specified host
+     * Get the full file path of the "backup.json" file that corresponds
+     * to the specified DSE Host ID and OpsCenter backup time
      *
-     * @param dseClusterMetadata
      * @param s3Client
      * @param hostId
-     * @param download
-     * @param threadNum
-     * @param keyspaceName
-     * @param tableName
      * @param opscBckupTimeGmt
-     * @param clearTargetDownDir
+     * @return
      */
-    static void listDownloadS3ObjForHost(Metadata dseClusterMetadata,
-                                         AmazonS3 s3Client,
-                                         String hostId,
-                                         boolean download,
-                                         int threadNum,
-                                         String keyspaceName,
-                                         String tableName,
-                                         ZonedDateTime opscBckupTimeGmt,
-                                         boolean clearTargetDownDir) {
-        assert (hostId != null);
-
-        System.out.format("List" +
-            (download ? " and download" : "") +
-            " OpsCenter S3 backup items for specified host (%s) ...\n", hostId);
-
-        String downloadHomeDir = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_LOCAL_DOWNLOAD_HOME);
-
-        if (download) {
-            assert (threadNum > 0);
-
-            // If non-existing, create local home directory to hold S3 download files
-            try {
-                File file = new File(downloadHomeDir);
-
-                if ( Files.notExists(file.toPath()))  {
-                    FileUtils.forceMkdir(file);
-                }
-                else {
-                    if (clearTargetDownDir) {
-                        FileUtils.cleanDirectory(file);
-                    }
-                }
-            }
-            catch (IOException ioe) {
-                System.out.println("ERROR: failed to create download home directory for S3 objects!");
-                System.exit(-10);
-            }
-        }
-
-        TransferManager transferManager = transferManager = TransferManagerBuilder.standard().withS3Client(s3Client).build();
+    static S3ObjectSummary getMyBackupJson(AmazonS3 s3Client,
+                                           String hostId,
+                                           ZonedDateTime opscBckupTimeGmt)
+    {
+        DateTimeFormatter opscObjTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss-z");
+        String opscBckupTimeGmtStr = opscBckupTimeGmt.format(opscObjTimeFormatter);
 
         String bktName = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_OPSC_S3_BUCKET_NAME);
-        String basePrefix = DseOpscS3RestoreUtils.OPSC_S3_OBJKEY_BASESTR + "/" + hostId;
+        String basePrefix = DseOpscS3RestoreUtils.OPSC_OBJKEY_BASESTR + "/" + hostId;
+        String opscPrefixString = basePrefix + "/" +
+            DseOpscS3RestoreUtils.OPSC_OBJKEY_OPSC_MARKER_STR + "_";
 
-        // First, check OpsCenter records matching the backup time
-        String prefixString = basePrefix + "/" +
-            DseOpscS3RestoreUtils.OPSC_S3_OBJKEY_OPSC_MARKER_STR + "_";
-
-        // Download OpsCenter S3 object items
         ObjectListing objectListing = s3Client.listObjects(
             new ListObjectsRequest()
                 .withBucketName(bktName)
-                .withPrefix(prefixString));
+                .withPrefix(opscPrefixString));
+
         List<S3ObjectSummary>  s3ObjectSummaries = objectListing.getObjectSummaries();
 
-        DateTimeFormatter s3OpscObjTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss-z");
-        String opscBckupTimeGmtStr = opscBckupTimeGmt.format(s3OpscObjTimeFormatter);
-
-        Map<String, String> s3UniquifierToKsTbls = new HashMap<String, String>();
-
+        S3ObjectSummary backupJsonS3ObjeSummary = null;
         for (S3ObjectSummary objectSummary : s3ObjectSummaries) {
+
             String opscObjName = objectSummary.getKey();
-            String opscObjNameShortZeroSecond =
-                opscObjName.substring(prefixString.length(), prefixString.length() + 16) + "-00-UTC";
+            String backupTimeShortZeroSecondStr =
+                opscObjName.substring(opscPrefixString.length(), opscPrefixString.length() + 16) + "-00-UTC";
 
-            // Only deal with the S3 objects that fall in the specified OpsCenter backup time range
-            if (opscBckupTimeGmtStr.equalsIgnoreCase(opscObjNameShortZeroSecond)) {
-                System.out.println(" - " + objectSummary.getKey() + " (size = " + objectSummary.getSize() + " bytes)");
-
-                // Always download "backup.json" file since it contains criticial mapping for
-                // S3 uniquifier to keyspace and table
-                boolean downloadForOpsc = (opscObjName.contains("backup.json") || download );
-
-                if (downloadForOpsc) {
-                    try {
-                        String objKeyName = objectSummary.getKey();
-
-                        downloadSingleS3Obj(transferManager,
-                            downloadHomeDir + "/" + objKeyName,
-                            bktName,
-                            objKeyName,
-                            objectSummary.getSize(),
-                            true);
-
-                    } catch (AmazonServiceException e) {
-                        // The call was transmitted successfully, but Amazon S3 couldn't process
-                        // it, so it returned an error response.
-                        e.printStackTrace();
-                    } catch (SdkClientException e) {
-                        // Amazon S3 couldn't be contacted for a response, or the client
-                        // couldn't parse the response from Amazon S3.
-                        e.printStackTrace();
-                    }
-                }
-
-                // Process OpsCenter backup.json file to get the Keyspace/Table/S3_Identifier mapping
-                if ( opscObjName.contains("backup.json") ) {
-                    // After downloaded the backup.json file, process its content to get mapping between
-                    // S3 Uniquifier to Keyspace-Table.
-                    String localBackupJsonFile = downloadHomeDir + "/" + opscObjName;
-                    s3UniquifierToKsTbls = getS3UniquifierToKsTblMapping(localBackupJsonFile);
-                }
+            if (opscBckupTimeGmtStr.equalsIgnoreCase(backupTimeShortZeroSecondStr)) {
+                backupJsonS3ObjeSummary = objectSummary;
+                break;
             }
         }
 
-        System.out.println();
-
-        // Download SSTable S3 object items
-        objectListing = s3Client.listObjects(
-            new ListObjectsRequest()
-                .withBucketName(bktName)
-                .withPrefix(DseOpscS3RestoreUtils.OPSC_S3_OBJKEY_BASESTR + "/" + hostId + "/sstable"));
-
-        s3ObjectSummaries = objectListing.getObjectSummaries();
-        int numSstableBkupItems = 0;
-
-        /**
-         *  Start multiple threads to process data ingestion concurrently
-         */
-        ExecutorService executor = Executors.newFixedThreadPool(threadNum);
-
-        // For sstable download - we use mulitple threads per sstable set. One set includes the following files:
-        // > mc-<#>-big-CompresssionInfo.db
-        // > mc-<#>-big-Data.db
-        // > mc-<#>-big-Filter.db
-        // > mc-<#>-big-Index.db
-        // > mc-<#>-big-Statistics.db
-        // > mc-<#>-big-Summary.db
-        final int SSTABLE_SET_FILENUM = 6;
-
-        String[] s3SstableObjKeyNames = new String[SSTABLE_SET_FILENUM];
-        long[] s3SstableObjKeySizes = new long[SSTABLE_SET_FILENUM];
-        String[] s3SstableKSNames = new String[SSTABLE_SET_FILENUM];
-        String[] s3SstableTBLNames = new String[SSTABLE_SET_FILENUM];
-        String[] s3SstableUniquifiers = new String[SSTABLE_SET_FILENUM];
-
-        int i = 0;
-        int threadId = 0;
-
-        for (S3ObjectSummary objectSummary : s3ObjectSummaries) {
-
-            String sstableObjName = objectSummary.getKey();
-            sstableObjName = sstableObjName.substring(sstableObjName.lastIndexOf("/") + 1);
-
-            if (s3UniquifierToKsTbls.containsKey(sstableObjName)) {
-                String[] ksTblUniquifer = s3UniquifierToKsTbls.get(sstableObjName).split(":");
-                String ks = ksTblUniquifer[0];
-                String tbl = ksTblUniquifer[1];
-                String uniquifier = ksTblUniquifer[2];
-
-                boolean filterKsTbl = keyspaceName.equalsIgnoreCase(ks);
-                if ( (tableName != null) && !tableName.isEmpty() ) {
-                    filterKsTbl = filterKsTbl && tableName.equalsIgnoreCase(tbl);
-                }
-
-                if (filterKsTbl) {
-                    numSstableBkupItems++;
-                    System.out.println("  - " + objectSummary.getKey() + " (size = " + objectSummary.getSize()
-                        + " bytes) [keyspace: " + ks + "; table: " + tbl + "]");
-
-                    s3SstableObjKeyNames[i % SSTABLE_SET_FILENUM] = objectSummary.getKey();
-                    s3SstableObjKeySizes[i % SSTABLE_SET_FILENUM] = objectSummary.getSize();
-                    s3SstableKSNames[i % SSTABLE_SET_FILENUM] = ks;
-                    s3SstableTBLNames[i % SSTABLE_SET_FILENUM] = tbl;
-                    s3SstableUniquifiers[i % SSTABLE_SET_FILENUM] = uniquifier;
-
-                    if ( download ) {
-                        if ( (i > 0) && ((i + 1) % SSTABLE_SET_FILENUM == 0) ) {
-                            Runnable worker = new S3ObjDownloadRunnable(
-                                threadId,
-                                transferManager,
-                                bktName,
-                                downloadHomeDir,
-                                s3SstableObjKeyNames,
-                                s3SstableObjKeySizes,
-                                s3SstableKSNames,
-                                s3SstableTBLNames,
-                                s3SstableUniquifiers);
-
-                            threadId++;
-
-                            s3SstableObjKeyNames = new String[SSTABLE_SET_FILENUM];
-                            s3SstableObjKeySizes = new long[SSTABLE_SET_FILENUM];
-                            s3SstableKSNames = new String[SSTABLE_SET_FILENUM];
-                            s3SstableTBLNames = new String[SSTABLE_SET_FILENUM];
-                            s3SstableUniquifiers = new String[SSTABLE_SET_FILENUM];
-
-                            executor.execute(worker);
-                        }
-
-                        i++;
-                    }
-                }
-            }
-        }
-
-        if ( download && ( threadId  < (numSstableBkupItems / SSTABLE_SET_FILENUM) ) ) {
-            Runnable worker = new S3ObjDownloadRunnable(
-                threadId,
-                transferManager,
-                bktName,
-                downloadHomeDir,
-                s3SstableObjKeyNames,
-                s3SstableObjKeySizes,
-                s3SstableKSNames,
-                s3SstableTBLNames,
-                s3SstableUniquifiers);
-
-            executor.execute(worker);
-        }
-
-        executor.shutdown();
-
-        while (!executor.isTerminated()) {
-        }
-
-        if (transferManager != null) {
-            transferManager.shutdownNow();
-        }
-
-        System.out.println("\n");
-
+        return backupJsonS3ObjeSummary;
     }
+
+
+    /**
+     *  Get file size of a file
+     *
+     * @param s3Client
+     * @param s3ObjKeyName
+     * @return
+     */
+    static long getS3FileSize(AmazonS3 s3Client, String s3BucketName, String s3ObjKeyName) {
+        long size = -1;
+
+        ObjectListing objectListing = s3Client.listObjects(
+            new ListObjectsRequest()
+                .withBucketName(s3BucketName)
+                .withPrefix(s3ObjKeyName));
+
+        List<S3ObjectSummary>  s3ObjectSummaries = objectListing.getObjectSummaries();
+
+        if (! s3ObjectSummaries.isEmpty()) {
+            assert (s3ObjectSummaries.size() == 1);
+            size = s3ObjectSummaries.get(0).getSize();
+        }
+
+        return size;
+    }
+
+    /**
+     * Get mapping from "unique_identifier" to "keyspace:table"
+     *
+     * @param backupJsonFileName
+     * @return
+     */
+    static Map<String, String> getOpscUniquifierToKsTblMapping(String backupJsonFileName) {
+
+        LinkedHashMap<String, String> opscObjMaps = new LinkedHashMap<String, String>();
+
+        JSONParser jsonParser = new JSONParser();
+
+        try {
+            JSONObject jsonObject = (JSONObject) jsonParser.parse(new FileReader(backupJsonFileName));
+            JSONArray jsonItemArr = (JSONArray)jsonObject.get(DseOpscS3RestoreUtils.OPSC_OBJKEY_SSTABLES_MARKER_STR);
+
+            Iterator iterator = jsonItemArr.iterator();
+
+            while (iterator.hasNext()) {
+                String jsonItemContent = (String) ((JSONObject)iterator.next()).toJSONString();
+                jsonItemContent = jsonItemContent.substring(1, jsonItemContent.length() -1 );
+
+                String[] keyValuePairs = jsonItemContent.split(",");
+
+                String ssTableName = "";
+                String uniquifierStr = "";
+                String keyspaceName = "";
+                String tableName = "";
+                String ssTableVersion = "";
+
+                for ( String keyValuePair :  keyValuePairs ) {
+                    String key = keyValuePair.split(":")[0];
+                    String value = keyValuePair.split(":")[1];
+
+                    key = key.substring(1, key.length() - 1 );
+                    value = value.substring(1, value.length() - 1);
+
+                    if ( key.equalsIgnoreCase("uniquifier") ) {
+                        uniquifierStr = value;
+                    }
+                    else if ( key.equalsIgnoreCase("version") ) {
+                        ssTableVersion = value;
+                    }
+                    else if ( key.equalsIgnoreCase("keyspace") ) {
+                        keyspaceName = value;
+                    }
+                    else if ( key.equalsIgnoreCase("cf") ) {
+                        tableName = value;
+                    }
+                    else if ( key.equalsIgnoreCase("name") ) {
+                        ssTableName = value;
+                    }
+                }
+
+                opscObjMaps.put(ssTableName, keyspaceName + ":" + tableName + ":" + uniquifierStr + ":" + ssTableVersion);
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return opscObjMaps;
+    }
+
 
     /**
      * Get the local host IP (non 127.0.0.1)
@@ -460,6 +327,351 @@ public class DseOpscS3Restore {
     }
 
     /**
+     * Find my DSE host ID by checking with DSE cluster
+     *
+     * @param dseClusterMetadata
+     * @return
+     */
+    static String findMyHostID(Metadata dseClusterMetadata) {
+        assert (dseClusterMetadata != null);
+
+        String myHostId = null;
+
+        String localhostIp = getLocalIP(CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_IP_MATCHING_NIC));
+
+        if (localhostIp == null) {
+            System.out.println("\nERROR: failed to get local host IP address!");
+        }
+        else {
+            boolean foundMatchingHost = false;
+            for (Host host : dseClusterMetadata.getAllHosts()) {
+                InetAddress listen_address = host.getListenAddress();
+                String listen_address_ip = (listen_address != null) ? listen_address.getHostAddress() : "";
+
+                InetAddress broadcast_address = host.getBroadcastAddress();
+                String broadcast_address_ip = (broadcast_address != null) ? broadcast_address.getHostAddress() : "";
+
+                //System.out.println("listen_address: " + listen_address_ip);
+                //System.out.println("broadcast_address: " + broadcast_address_ip + "\n");
+
+                if (localhostIp.equals(listen_address_ip) || localhostIp.equals(broadcast_address_ip)) {
+                    myHostId = host.getHostId().toString();
+                    foundMatchingHost = true;
+                    break;
+                }
+            }
+
+            if (!foundMatchingHost) {
+                System.out.format("\nERROR: Failed to match my DSE host address by IP (NIC Name: %s; NIC IP: %s)!\n",
+                    CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_IP_MATCHING_NIC),
+                    localhostIp);
+            }
+        }
+
+        return myHostId;
+    }
+    
+
+    /**
+     * Download a single S3 object to a local file.
+     *
+     * @param s3TransferManager
+     * @param localFilePath
+     * @param s3BukcetName
+     * @param s3ObjKeyName
+     * @param s3ObjeKeySize
+     * @param file_size_chk
+     * @param printMsg
+     */
+    static void downloadSingleS3Obj(TransferManager s3TransferManager,
+                                    String localFilePath,
+                                    String s3BukcetName,
+                                    String s3ObjKeyName,
+                                    long s3ObjeKeySize,
+                                    boolean file_size_chk,
+                                    boolean printMsg) {
+        File localFile = new File(localFilePath);
+        GetObjectRequest getObjectRequest = new GetObjectRequest(s3BukcetName, s3ObjKeyName);
+        Download s3Download = s3TransferManager.download(getObjectRequest, localFile);
+
+        try {
+            // wait for download to complete
+            s3Download.waitForCompletion();
+        }
+        catch ( InterruptedException ie) {
+            if (printMsg) {
+                System.out.println("   ... Download of [" + s3BukcetName + "] " + s3ObjKeyName + " gets interrupted.");
+            }
+        }
+        catch ( Exception ex ) {
+            if (printMsg) {
+                System.out.println("   ... Download failed - unknown error.");
+            }
+            ex.printStackTrace();
+        }
+
+        if (file_size_chk) {
+            TransferProgress transferProgress = s3Download.getProgress();
+            if (printMsg) {
+                System.out.format("   ... download complete: %d of %d bytes transferred (%.2f%%)\n",
+                    transferProgress.getBytesTransferred(),
+                    s3ObjeKeySize,
+                    transferProgress.getPercentTransferred());
+            }
+        }
+    }
+
+
+    /**
+     * List (and download) Opsc S3 backup objects for a specified host
+     *
+     * @param fileSizeChk
+     * @param s3Client
+     * @param hostId
+     * @param download
+     * @param threadNum
+     * @param keyspaceName
+     * @param tableName
+     * @param opscBckupTimeGmt
+     * @param clearTargetDownDir
+     * @param noTargetDirStruct
+     */
+    static void listDownloadS3ObjForHost(boolean fileSizeChk,
+                                         AmazonS3 s3Client,
+                                         String hostId,
+                                         boolean download,
+                                         int threadNum,
+                                         String keyspaceName,
+                                         String tableName,
+                                         ZonedDateTime opscBckupTimeGmt,
+                                         boolean clearTargetDownDir,
+                                         boolean noTargetDirStruct) {
+        assert (hostId != null);
+
+        System.out.format("List" +
+            (download ? " and download" : "") +
+            " OpsCenter S3 backup items for specified host (%s) ...\n", hostId);
+
+        String downloadHomeDir = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_LOCAL_DOWNLOAD_HOME);
+
+        if (download) {
+            assert (threadNum > 0);
+
+            // If non-existing, create local home directory to hold S3 download files
+            try {
+                File file = new File(downloadHomeDir);
+
+                if ( Files.notExists(file.toPath()))  {
+                    FileUtils.forceMkdir(file);
+                }
+                else {
+                    if (clearTargetDownDir) {
+                        FileUtils.cleanDirectory(file);
+                    }
+                }
+            }
+            catch (IOException ioe) {
+                System.out.println("ERROR: failed to create download home directory for S3 objects!");
+                System.exit(-10);
+            }
+        }
+
+
+        // First, check OpsCenter records matching the backup time
+        TransferManager transferManager =
+            TransferManagerBuilder.standard().withS3Client(s3Client).build();
+
+        String bktName = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_OPSC_S3_BUCKET_NAME);
+
+        Map<String, String> opscUniquifierToKsTbls = new HashMap<String, String>();
+
+        S3ObjectSummary backupJsonS3ObjSummary = getMyBackupJson(s3Client, hostId, opscBckupTimeGmt);
+
+        if (backupJsonS3ObjSummary == null) {
+            DateTimeFormatter opscObjTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss-z");
+            String opscBckupTimeGmtStr = opscBckupTimeGmt.format(opscObjTimeFormatter);
+
+            System.out.format("ERROR: Failed to find %s file for host (%s) at backup time (%s)\n",
+                DseOpscS3RestoreUtils.OPSC_BKUP_METADATA_FILE,
+                hostId,
+                opscBckupTimeGmtStr);
+
+            return;
+        }
+        else {
+            // download backup.json file from S3
+            String objKeyName = backupJsonS3ObjSummary.getKey();
+            String localBackupJsonFile = downloadHomeDir + "/" + objKeyName;
+
+            boolean downloadSucceed = false;
+
+            try {
+                downloadSingleS3Obj(transferManager,
+                    localBackupJsonFile,
+                    bktName,
+                    objKeyName,
+                    backupJsonS3ObjSummary.getSize(),
+                    fileSizeChk,
+                    true);
+
+                downloadSucceed = true;
+
+            } catch (AmazonServiceException e) {
+                // The call was transmitted successfully, but Amazon S3 couldn't process
+                // it, so it returned an error response.
+                e.printStackTrace();
+            } catch (SdkClientException e) {
+                // Amazon S3 couldn't be contacted for a response, or the client
+                // couldn't parse the response from Amazon S3.
+                e.printStackTrace();
+            }
+
+            // processing backup.json metadata when it is successfully downloaded from S3
+            if (downloadSucceed) {
+                opscUniquifierToKsTbls =
+                    getOpscUniquifierToKsTblMapping(localBackupJsonFile);
+            }
+        }
+
+
+        if ( opscUniquifierToKsTbls.isEmpty() ) {
+            System.out.println("ERROR: Failed to get backup SSTable file list from " +
+                DseOpscS3RestoreUtils.OPSC_BKUP_METADATA_FILE + " file!");
+            return;
+        }
+
+
+        // Download SSTable S3 object items
+        int numSstableBkupItems = 0;
+
+        /**
+         *  Start multiple threads to process data ingestion concurrently
+         */
+        ExecutorService executor = Executors.newFixedThreadPool(threadNum);
+
+        // For sstable download - we use mulitple threads per sstable set. One set includes the following files:
+        // > mc-<#>-big-CompresssionInfo.db
+        // > mc-<#>-big-Data.db
+        // > mc-<#>-big-Filter.db
+        // > mc-<#>-big-Index.db
+        // > mc-<#>-big-Statistics.db
+        // > mc-<#>-big-Summary.db
+        final int SSTABLE_SET_FILENUM = 6;
+
+        String[] s3SstableObjKeyNames = new String[SSTABLE_SET_FILENUM];
+        long[] s3SstableObjKeySizes = new long[SSTABLE_SET_FILENUM];
+        String[] s3SstableKSNames = new String[SSTABLE_SET_FILENUM];
+        String[] s3SstableTBLNames = new String[SSTABLE_SET_FILENUM];
+        String[] s3SstableVersions = new String[SSTABLE_SET_FILENUM];
+
+        int i = 0;
+        int threadId = 0;
+
+        String sstablePrefixString =
+            DseOpscS3RestoreUtils.OPSC_OBJKEY_BASESTR + "/" +
+                hostId + "/" +
+                DseOpscS3RestoreUtils.OPSC_OBJKEY_SSTABLES_MARKER_STR;
+
+
+        for ( String sstableObjName : opscUniquifierToKsTbls.keySet() )  {
+
+            String opscObjName = sstablePrefixString + "/" + sstableObjName;
+
+            String[] ksTblUniquifer = opscUniquifierToKsTbls.get(sstableObjName).split(":");
+            String ks = ksTblUniquifer[0];
+            String tbl = ksTblUniquifer[1];
+            String version = ksTblUniquifer[3];
+
+            boolean filterKsTbl = keyspaceName.equalsIgnoreCase(ks);
+            if ((tableName != null) && !tableName.isEmpty()) {
+                filterKsTbl = filterKsTbl && tableName.equalsIgnoreCase(tbl);
+            }
+
+            if (filterKsTbl) {
+                numSstableBkupItems++;
+
+                long opscObjSize = -1;
+                if (fileSizeChk) {
+                    opscObjSize = getS3FileSize(s3Client, bktName, opscObjName);
+                }
+
+                System.out.println("  - [" + bktName + "] " + opscObjName +
+                    ( !fileSizeChk ? "" : (" (size = " + opscObjSize + " bytes)") ) +
+                    " [keyspace: " + ks + "; table: " + tbl + "]");
+
+                s3SstableObjKeyNames[i % SSTABLE_SET_FILENUM] = opscObjName;
+                s3SstableObjKeySizes[i % SSTABLE_SET_FILENUM] = opscObjSize;
+                s3SstableKSNames[i % SSTABLE_SET_FILENUM] = ks;
+                s3SstableTBLNames[i % SSTABLE_SET_FILENUM] = tbl;
+                s3SstableVersions[i % SSTABLE_SET_FILENUM] = version;
+
+                if (download) {
+                    if ((i > 0) && ((i + 1) % SSTABLE_SET_FILENUM == 0)) {
+                        Runnable worker = new S3ObjDownloadRunnable(
+                            threadId,
+                            transferManager,
+                            fileSizeChk,
+                            bktName,
+                            downloadHomeDir,
+                            s3SstableObjKeyNames,
+                            s3SstableObjKeySizes,
+                            s3SstableKSNames,
+                            s3SstableTBLNames,
+                            s3SstableVersions,
+                            noTargetDirStruct);
+
+                        threadId++;
+
+                        s3SstableObjKeyNames = new String[SSTABLE_SET_FILENUM];
+                        s3SstableObjKeySizes = new long[SSTABLE_SET_FILENUM];
+                        s3SstableKSNames = new String[SSTABLE_SET_FILENUM];
+                        s3SstableTBLNames = new String[SSTABLE_SET_FILENUM];
+                        s3SstableVersions[i % SSTABLE_SET_FILENUM] = version;
+
+                        executor.execute(worker);
+                    }
+
+                    i++;
+                }
+            }
+        }
+
+        if ( download && ( threadId  < (numSstableBkupItems / SSTABLE_SET_FILENUM) ) ) {
+            Runnable worker = new S3ObjDownloadRunnable(
+                threadId,
+                transferManager,
+                fileSizeChk,
+                bktName,
+                downloadHomeDir,
+                s3SstableObjKeyNames,
+                s3SstableObjKeySizes,
+                s3SstableKSNames,
+                s3SstableTBLNames,
+                s3SstableVersions,
+                noTargetDirStruct);
+
+            executor.execute(worker);
+        }
+
+        executor.shutdown();
+
+        while (!executor.isTerminated()) {
+        }
+
+        if (numSstableBkupItems == 0) {
+            System.out.println("  - Found no matching backup records for the specified conditions!.");
+        }
+
+        if (transferManager != null) {
+            transferManager.shutdownNow();
+        }
+
+        System.out.println("\n");
+
+    }
+
+
+    /**
      * List (and download) Opsc S3 backup objects for myself - the host that runs this program
      *
      * @param dseClusterMetadata
@@ -473,6 +685,7 @@ public class DseOpscS3Restore {
      * @param clearTargetDownDir
      */
     static void listDownloadS3ObjForMe(Metadata dseClusterMetadata,
+                                       boolean fileSizeChk,
                                        AmazonS3 s3Client,
                                        boolean download,
                                        int threadNum,
@@ -480,40 +693,18 @@ public class DseOpscS3Restore {
                                        String keyspaceName,
                                        String tableName,
                                        ZonedDateTime opscBckupTimeGmt,
-                                       boolean clearTargetDownDir) {
+                                       boolean clearTargetDownDir,
+                                       boolean noTargetDirStruct) {
         String myHostId = hostIDStr;
 
+        // When not providing DSE host ID explicitly, find it by checking with DSE cluster
         if ( (hostIDStr == null) || (hostIDStr.isEmpty()) ) {
-
-            String localhostIp = getLocalIP("eth0");
-
-            if (localhostIp == null) {
-                System.out.println("\nERROR: failed to get local host IP address!");
-                return;
-            }
-
-            for (Host host : dseClusterMetadata.getAllHosts()) {
-                InetAddress listen_address = host.getListenAddress();
-                String listen_address_ip = (listen_address != null) ? host.getListenAddress().getHostAddress() : "";
-
-                InetAddress broadcast_address = host.getListenAddress();
-                String broadcast_address_ip = (broadcast_address != null) ? host.getBroadcastAddress().getHostAddress() : "";
-
-                //System.out.println("listen_address: " + listen_address_ip);
-                //System.out.println("broadcast_address: " + broadcast_address_ip + "\n");
-
-                if (localhostIp.equals(listen_address_ip) || localhostIp.equals(broadcast_address_ip)) {
-                    myHostId = host.getHostId().toString();
-                    break;
-                }
-            }
+            myHostId = findMyHostID(dseClusterMetadata);
         }
 
         if ( myHostId != null && !myHostId.isEmpty() ) {
-            //System.out.println("locahost: " + myHostId);
-
             listDownloadS3ObjForHost(
-                dseClusterMetadata,
+                fileSizeChk,
                 s3Client,
                 myHostId,
                 download,
@@ -521,69 +712,10 @@ public class DseOpscS3Restore {
                 keyspaceName,
                 tableName,
                 opscBckupTimeGmt,
-                clearTargetDownDir
+                clearTargetDownDir,
+                noTargetDirStruct
             );
         }
-    }
-
-    /**
-     * Get mapping from "S3_uniquifier" to "keyspace:table"
-     *
-     * @param backupJsonFileName
-     * @return
-     */
-    static Map<String, String> getS3UniquifierToKsTblMapping(String backupJsonFileName) {
-
-        HashMap<String, String> s3ObjMaps = new HashMap<String, String>();
-
-        JSONParser jsonParser = new JSONParser();
-
-        try {
-            JSONObject jsonObject = (JSONObject) jsonParser.parse(new FileReader(backupJsonFileName));
-            JSONArray jsonItemArr = (JSONArray)jsonObject.get(DseOpscS3RestoreUtils.OPSC_S3_OBJKEY_SSTABLES_MARKER_STR);
-
-            Iterator<JSONObject> iterator = jsonItemArr.iterator();
-
-            while (iterator.hasNext()) {
-                String jsonItemContent = (String) iterator.next().toJSONString();
-                jsonItemContent = jsonItemContent.substring(1, jsonItemContent.length() -1 );
-
-                String[] keyValuePairs = jsonItemContent.split(",");
-
-                String ssTableName = "";
-                String uniquifierStr = "";
-                String keyspaceName = "";
-                String tableName = "";
-
-                for ( String keyValuePair :  keyValuePairs ) {
-                    String key = keyValuePair.split(":")[0];
-                    String value = keyValuePair.split(":")[1];
-
-                    key = key.substring(1, key.length() - 1 );
-                    value = value.substring(1, value.length() - 1);
-
-                    if ( key.equalsIgnoreCase("uniquifier") ) {
-                        uniquifierStr = value;
-                    }
-                    else if ( key.equalsIgnoreCase("keyspace") ) {
-                        keyspaceName = value;
-                    }
-                    else if ( key.equalsIgnoreCase("cf") ) {
-                        tableName = value;
-                    }
-                    else if ( key.equalsIgnoreCase("name") ) {
-                        ssTableName = value;
-                    }
-                }
-
-                s3ObjMaps.put(ssTableName, keyspaceName + ":" + tableName + ":" + uniquifierStr);
-            }
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return s3ObjMaps;
     }
 
 
@@ -591,12 +723,14 @@ public class DseOpscS3Restore {
      * List Opsc S3 backup objects for all DSE cluster hosts
      *
      * @param dseClusterMetadata
+     * @param fileSizeChk
      * @param s3Client
      * @param keyspaceName
      * @param tableName
      * @param opscBckupTimeGmt
      */
     static void listS3ObjtForCluster(Metadata dseClusterMetadata,
+                                     boolean fileSizeChk,
                                      AmazonS3 s3Client,
                                      String keyspaceName,
                                      String tableName,
@@ -604,13 +738,14 @@ public class DseOpscS3Restore {
 
         System.out.format("List OpsCenter S3 backup items for DSE cluster (%s) ...\n", dseClusterMetadata.getClusterName());
 
-        listS3ObjForDC(dseClusterMetadata, s3Client, "", keyspaceName, tableName, opscBckupTimeGmt);
+        listS3ObjForDC(dseClusterMetadata, fileSizeChk, s3Client, "", keyspaceName, tableName, opscBckupTimeGmt);
     }
 
     /**
      * List Opsc S3 backup objects for all hosts in a specified DC
      *
      * @param dseClusterMetadata
+     * @param fileSizeChk
      * @param s3Client
      * @param dcName
      * @param keyspaceName
@@ -618,6 +753,7 @@ public class DseOpscS3Restore {
      * @param opscBckupTimeGmt
      */
     static void listS3ObjForDC(Metadata dseClusterMetadata,
+                               boolean fileSizeChk,
                                AmazonS3 s3Client,
                                String dcName,
                                String keyspaceName,
@@ -637,9 +773,14 @@ public class DseOpscS3Restore {
         }
 
         // Download matching S3 backup.json file to local
-        TransferManager transferManager = TransferManagerBuilder.standard().withS3Client(s3Client).build();
+        TransferManager transferManager =
+            TransferManagerBuilder.standard().withS3Client(s3Client).build();
+
+        String bktName = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_OPSC_S3_BUCKET_NAME);
 
         for ( Host host : hosts ) {
+            int numSstableBkupItems = 0;
+
             String dc_name = host.getDatacenter();
             String rack_name = host.getRack();
             String host_id = host.getHostId().toString();
@@ -650,95 +791,109 @@ public class DseOpscS3Restore {
                 System.out.format("  Items for Host %s (rack: %s, DC: %s) ...\n",
                     host_id, rack_name, dc_name, dseClusterMetadata.getClusterName());
 
-                String bktName = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_OPSC_S3_BUCKET_NAME);
 
-                String basePrefix = DseOpscS3RestoreUtils.OPSC_S3_OBJKEY_BASESTR + "/" + host_id;
+                // First. get the backup.json file corresponds to the specified host and backup time
 
-                // First, check OpsCenter records matching the backup time
-                String prefixString = basePrefix + "/" +
-                    DseOpscS3RestoreUtils.OPSC_S3_OBJKEY_OPSC_MARKER_STR + "_";
+                Map<String, String> opscUniquifierToKsTbls = new HashMap<>();
 
-                ObjectListing opscObjListing = s3Client.listObjects(
-                    new ListObjectsRequest()
-                        .withBucketName(bktName)
-                        .withPrefix(prefixString));
+                S3ObjectSummary backupJsonS3ObjSummary = getMyBackupJson(s3Client, host_id, opscBckupTimeGmt);
 
-                DateTimeFormatter s3OpscObjTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss-z");
-                String opscBckupTimeGmtStr = opscBckupTimeGmt.format(s3OpscObjTimeFormatter);
+                if (backupJsonS3ObjSummary == null) {
+                    DateTimeFormatter opscObjTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss-z");
+                    String opscBckupTimeGmtStr = opscBckupTimeGmt.format(opscObjTimeFormatter);
 
-                Map<String, String> s3UniquifierToKsTbls = new HashMap<String, String>();
+                    System.out.format("ERROR: Failed to find %s file for host (%s) at backup time (%s)\n",
+                        DseOpscS3RestoreUtils.OPSC_BKUP_METADATA_FILE,
+                        host_id,
+                        opscBckupTimeGmtStr);
 
-                for (S3ObjectSummary objectSummary : opscObjListing.getObjectSummaries()) {
+                    return;
+                }
+                else {
+                    // download backup.json file from S3
+                    String objKeyName = backupJsonS3ObjSummary.getKey();
+                    String localBackupJsonFile =
+                        CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_LOCAL_DOWNLOAD_HOME) +
+                        "/" +
+                        objKeyName;
 
-                    String opscObjName = objectSummary.getKey();
-                    String opscObjNameShortZeroSecond =
-                        opscObjName.substring(prefixString.length(), prefixString.length() + 16) + "-00-UTC";
+                    boolean downloadSucceed = false;
 
-                    // Only deal with the S3 objects that fall in the specified OpsCenter backup time range
-                    if (opscBckupTimeGmtStr.equalsIgnoreCase(opscObjNameShortZeroSecond)) {
-                        System.out.println("  - " + opscObjName + " (size = " + objectSummary.getSize() + " bytes)");
+                    try {
+                        downloadSingleS3Obj(transferManager,
+                            localBackupJsonFile,
+                            bktName,
+                            objKeyName,
+                            backupJsonS3ObjSummary.getSize(),
+                            fileSizeChk,
+                            true);
 
-                        // Process OpsCenter backup.json file to get the Keyspace/Table/S3_Identifier mapping
-                        if ( opscObjName.contains("backup.json") ) {
+                        downloadSucceed = true;
 
-                            String downloadHomeDir = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_LOCAL_DOWNLOAD_HOME);
+                    } catch (AmazonServiceException e) {
+                        // The call was transmitted successfully, but Amazon S3 couldn't process
+                        // it, so it returned an error response.
+                        e.printStackTrace();
+                    } catch (SdkClientException e) {
+                        // Amazon S3 couldn't be contacted for a response, or the client
+                        // couldn't parse the response from Amazon S3.
+                        e.printStackTrace();
+                    }
 
-                            // If non-existing, create local home directory to hold S3 download files
-                            try {
-                                File file = new File(downloadHomeDir);
-
-                                if ( Files.notExists(file.toPath()))  {
-                                    FileUtils.forceMkdir(file);
-                                }
-                            }
-                            catch (IOException ioe) {
-                                System.out.println("ERROR: failed to create download home directory for S3 objects!");
-                                System.exit(-10);
-                            }
-
-                            String localBackupJsonFile = downloadHomeDir + "/" + opscObjName;
-                            downloadSingleS3Obj(transferManager,
-                                localBackupJsonFile,
-                                bktName,
-                                opscObjName,
-                                objectSummary.getSize(),
-                                false );
-
-                            // After downloaded the backup.json file, process its content to get mapping between
-                            // S3 Uniquifier to Keyspace-Table.
-                            s3UniquifierToKsTbls = getS3UniquifierToKsTblMapping(localBackupJsonFile);
-                        }
+                    // processing backup.json metadata when it is successfully downloaded from S3
+                    if (downloadSucceed) {
+                        opscUniquifierToKsTbls =
+                            getOpscUniquifierToKsTblMapping(localBackupJsonFile);
                     }
                 }
 
+
+                if ( opscUniquifierToKsTbls.isEmpty() ) {
+                    System.out.println("ERROR: Failed to get backup SSTable file list from " +
+                        DseOpscS3RestoreUtils.OPSC_BKUP_METADATA_FILE + " file!");
+                    return;
+                }
+
+
                 // Second, check SSTables records matching the backup time, keyspace, and table
-                prefixString = basePrefix + "/" +
-                    DseOpscS3RestoreUtils.OPSC_S3_OBJKEY_SSTABLES_MARKER_STR;
 
-                ObjectListing sstableObjListing = s3Client.listObjects(
-                    new ListObjectsRequest()
-                        .withBucketName(bktName)
-                        .withPrefix(prefixString));
+                String sstablePrefixString =
+                    CONFIGPROP.get(DseOpscS3RestoreUtils.CFG_KEY_OPSC_S3_BUCKET_NAME) + "/" +
+                        DseOpscS3RestoreUtils.OPSC_OBJKEY_BASESTR + "/" +
+                        host_id + "/" +
+                        DseOpscS3RestoreUtils.OPSC_OBJKEY_SSTABLES_MARKER_STR;
 
-                for (S3ObjectSummary objectSummary : sstableObjListing.getObjectSummaries()) {
-                    String sstableObjName = objectSummary.getKey();
-                    sstableObjName = sstableObjName.substring(sstableObjName.lastIndexOf("/") + 1);
+                for ( String sstableObjName : opscUniquifierToKsTbls.keySet() )  {
 
-                    if (s3UniquifierToKsTbls.containsKey(sstableObjName)) {
-                        String[] ksTblUniquifer = s3UniquifierToKsTbls.get(sstableObjName).split(":");
+                    String opscObjName = sstablePrefixString + "/" + sstableObjName;
+
+                    if (opscUniquifierToKsTbls.containsKey(sstableObjName)) {
+                        String[] ksTblUniquifer = opscUniquifierToKsTbls.get(sstableObjName).split(":");
                         String ks = ksTblUniquifer[0];
                         String tbl = ksTblUniquifer[1];
 
                         boolean filterKsTbl = keyspaceName.equalsIgnoreCase(ks);
-                        if ( (tableName != null) && !tableName.isEmpty() ) {
+                        if ((tableName != null) && !tableName.isEmpty()) {
                             filterKsTbl = filterKsTbl && tableName.equalsIgnoreCase(tbl);
                         }
 
                         if (filterKsTbl) {
-                            System.out.println("  - " + objectSummary.getKey() + " (size = " + objectSummary.getSize()
-                                + " bytes) [keyspace: " + ks + "; table: " + tbl + "]");
+                            numSstableBkupItems++;
+
+                            long opscObjSize = -1;
+                            if (fileSizeChk) {
+                                opscObjSize = getS3FileSize(s3Client, bktName, opscObjName);
+                            }
+
+                            System.out.println("  - " + opscObjName +
+                                ( !fileSizeChk ? "" : (" (size = " + opscObjSize + " bytes)") ) +
+                                " [keyspace: " + ks + "; table: " + tbl + "]");
                         }
                     }
+                }
+
+                if (numSstableBkupItems == 0) {
+                    System.out.println("  - Found no matching backup records for the specified conditions!.");
                 }
             }
 
@@ -766,12 +921,12 @@ public class DseOpscS3Restore {
             DseOpscS3RestoreUtils.CMD_OPTION_LIST_SHORT,
             DseOpscS3RestoreUtils.CMD_OPTION_LIST_LONG,
             true,
-            "List OpsCenter S3 backup items (all | DC:\"<dc_name>\" | me[:\"<host_id_string>\"]).");
+            "List OpsCenter backup items (all | DC:\"<dc_name>\" | me[:\"<host_id_string>\"]).");
         Option downloadOption = new Option(
             DseOpscS3RestoreUtils.CMD_OPTION_DOWNLOAD_SHORT,
             DseOpscS3RestoreUtils.CMD_OPTION_DOWNLOAD_LONG,
             true,
-            "Download OpsCenter S3 bakcup items to local directory (only applies to \"list me\" case");
+            "Download OpsCenter bakcup items to local directory (only applies to \"list me\" case");
         Option fileOption = new Option(
             DseOpscS3RestoreUtils.CMD_OPTION_CFG_SHORT,
             DseOpscS3RestoreUtils.CMD_OPTION_CFG_LONG,
@@ -787,16 +942,36 @@ public class DseOpscS3Restore {
             DseOpscS3RestoreUtils.CMD_OPTION_TABLE_LONG,
             true,
             "Table name to be restored");
-        Option opscBkupTimeOPtion = new Option(
+        Option opscBkupTimeOption = new Option(
             DseOpscS3RestoreUtils.CMD_OPTION_BACKUPTIME_SHORT,
             DseOpscS3RestoreUtils.CMD_OPTION_BACKUPTIME_LONG,
             true,
             "OpsCetner backup datetime");
-        Option clsTargetDirOPtion = new Option(
+        Option clsTargetDirOption = new Option(
             DseOpscS3RestoreUtils.CMD_OPTION_CLSDOWNDIR_SHORT,
             DseOpscS3RestoreUtils.CMD_OPTION_CLSDOWNDIR_LONG,
             true,
-            "OpsCetner backup datetime");
+            "Clear existing download directory content");
+        Option noDirStructOption = new Option(
+            DseOpscS3RestoreUtils.CMD_OPTION_NODIR_SHORT,
+            DseOpscS3RestoreUtils.CMD_OPTION_NODIR_LONG,
+            true,
+            "Don't maintain keyspace/table backup data directory structure");
+        Option userOption = new Option(
+            DseOpscS3RestoreUtils.CMD_OPTION_USER_SHORT,
+            DseOpscS3RestoreUtils.CMD_OPTION_USER_LONG,
+            true,
+            "Cassandra user name");
+        Option passwdOption = new Option(
+            DseOpscS3RestoreUtils.CMD_OPTION_PWD_SHORT,
+            DseOpscS3RestoreUtils.CMD_OPTION_PWD_LONG,
+            true,
+            "Cassandra user password");
+        Option debugOption = new Option(
+            DseOpscS3RestoreUtils.CMD_OPTION_DEBUG_SHORT,
+            DseOpscS3RestoreUtils.CMD_OPTION_DEBUG_LONG,
+            false,
+            "Debug output");
 
         options.addOption(helpOption);
         options.addOption(listOption);
@@ -804,8 +979,12 @@ public class DseOpscS3Restore {
         options.addOption(downloadOption);
         options.addOption(keyspaceOption);
         options.addOption(tableOption);
-        options.addOption(opscBkupTimeOPtion);
-        options.addOption(clsTargetDirOPtion);
+        options.addOption(opscBkupTimeOption);
+        options.addOption(clsTargetDirOption);
+        options.addOption(noDirStructOption);
+        options.addOption(userOption);
+        options.addOption(passwdOption);
+        options.addOption(debugOption);
     }
 
     /**
@@ -859,7 +1038,7 @@ public class DseOpscS3Restore {
         }
         catch (ParseException e) {
             System.err.format("\nERROR: Failure parsing argument inputs: %s.\n", e.getMessage());
-            usageAndExit(-10);
+            usageAndExit(10);
         }
 
         // Print help message
@@ -872,7 +1051,7 @@ public class DseOpscS3Restore {
         if ( (cfgFilePath == null) || cfgFilePath.isEmpty() ) {
             System.err.println("\nERROR: Please specify a valid configuration file path as the \"-" +
                 DseOpscS3RestoreUtils.CMD_OPTION_CFG_SHORT + " option value.\n");
-            usageAndExit(-20);
+            usageAndExit(20);
         }
 
         // "-l" option (ALL | DC:"<DC_Name>" | me[:"<C*_node_host_id>" is a must!
@@ -890,7 +1069,7 @@ public class DseOpscS3Restore {
                 DseOpscS3RestoreUtils.CMD_OPTION_LIST_ALL + " | " +
                 DseOpscS3RestoreUtils.CMD_OPTION_LIST_DC + ":\"<DC_Name>\" | " +
                 DseOpscS3RestoreUtils.CMD_OPTION_LIST_ME + "[:\"<host_id>\"].\n");
-            usageAndExit(-30);
+            usageAndExit(30);
         }
 
         if ( lOptVal.equalsIgnoreCase(DseOpscS3RestoreUtils.CMD_OPTION_LIST_ALL) ) {
@@ -904,7 +1083,7 @@ public class DseOpscS3Restore {
                 System.out.println("\nERROR: Please specify proper value for \"-" +
                     DseOpscS3RestoreUtils.CMD_OPTION_LIST_SHORT + " " + DseOpscS3RestoreUtils.CMD_OPTION_LIST_DC +
                     "\" option -- DC:\"<DC_Name>\".\n");
-                usageAndExit(-40);
+                usageAndExit(40);
             }
             else {
                 dcNameToList = strSplits[1];
@@ -918,7 +1097,7 @@ public class DseOpscS3Restore {
                 System.out.println("\nERROR: Please specify proper value for \"-" +
                     DseOpscS3RestoreUtils.CMD_OPTION_LIST_SHORT + " " + DseOpscS3RestoreUtils.CMD_OPTION_LIST_ME +
                     "\" option -- [:\"<specified_host_id_string>\"].\n");
-                usageAndExit(-50);
+                usageAndExit(50);
             }
             else if ( lOptVal.contains(":") ) {
                 myHostID = lOptVal.split(":")[1];
@@ -930,7 +1109,7 @@ public class DseOpscS3Restore {
                 DseOpscS3RestoreUtils.CMD_OPTION_LIST_ALL + " | " +
                 DseOpscS3RestoreUtils.CMD_OPTION_LIST_DC + ":\"<DC_Name>\" | " +
                 DseOpscS3RestoreUtils.CMD_OPTION_LIST_ME + "[:\"<host_id>\"].\n");
-            usageAndExit(-60);
+            usageAndExit(60);
         }
 
         // Download option ONLY works for "-l me" option! If "-d" option value is not specified, use the default value
@@ -958,7 +1137,7 @@ public class DseOpscS3Restore {
         if ( (keyspaceName == null) || keyspaceName.isEmpty() ) {
             System.out.println("\nERROR: Please specify proper keypsace name as the \"-" +
                 DseOpscS3RestoreUtils.CMD_OPTION_KEYSPACE_SHORT + "\" option value.\n");
-            usageAndExit(-70);
+            usageAndExit(70);
         }
 
         // "-t" option (Table name) is optional. If not specified, all Tables of the specified keyspaces will be processed.
@@ -969,12 +1148,12 @@ public class DseOpscS3Restore {
         String obtOptOptValue = cmd.getOptionValue(DseOpscS3RestoreUtils.CMD_OPTION_BACKUPTIME_SHORT);
 
         if ( (obtOptOptValue == null) || (obtOptOptValue.isEmpty()) ) {
-            System.out.println("\nERROR: Please specify proper OpsCenter S3 backup time string (M/d/yyyy h:m a) as the \"-" +
+            System.out.println("\nERROR: Please specify proper OpsCenter backup time string (M/d/yyyy h:mm a) as the \"-" +
                 DseOpscS3RestoreUtils.CMD_OPTION_BACKUPTIME_SHORT + "\" option value.");
-            usageAndExit(-80);
+            usageAndExit(80);
         }
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("M/d/yyyy h:m a");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("M/d/yyyy h:mm a");
         ZonedDateTime opscBackupTime_gmt = null;
         try {
             LocalDateTime ldt = LocalDateTime.parse(obtOptOptValue, formatter);
@@ -985,9 +1164,9 @@ public class DseOpscS3Restore {
         catch (DateTimeParseException dte) {
             dte.printStackTrace();
 
-            System.out.println("\nERROR: Please specify correct time string format (M/d/yyyy h:m a) for \"-" +
+            System.out.println("\nERROR: Please specify correct time string format (M/d/yyyy h:mm a) for \"-" +
                 DseOpscS3RestoreUtils.CMD_OPTION_BACKUPTIME_SHORT + "\" option.");
-            //usageAndExit(-80);
+            usageAndExit(90);
         }
 
         // "-cls" option is optional
@@ -997,11 +1176,32 @@ public class DseOpscS3Restore {
         if ( (clsOptOptValue != null) && (!clsOptOptValue.isEmpty()) ) {
             try {
                 clearTargetDownDir = Boolean.parseBoolean(clsOptOptValue);
-                clearTargetDownDir = true;
             }
             catch (NumberFormatException nfe) {
             }
         }
+
+        // "-nds" option is optional.
+        // ONLY works when "-t"/"--table" option is provided;
+        //    Otherwise, target directory structure is automatically maintained.
+        boolean noTargetDirStruct = false;
+        String ndsOptOptValue = cmd.getOptionValue(DseOpscS3RestoreUtils.CMD_OPTION_NODIR_SHORT);
+
+        if ( (ndsOptOptValue != null) && (!ndsOptOptValue.isEmpty()) ) {
+            try {
+                noTargetDirStruct = Boolean.parseBoolean(ndsOptOptValue);
+
+                if  ( (tableName == null) || tableName.isEmpty() ) {
+                    noTargetDirStruct = false;
+                }
+            }
+            catch (NumberFormatException nfe) {
+            }
+        }
+
+        // "-u" and "-p" option is optional.
+        String userName = cmd.getOptionValue(DseOpscS3RestoreUtils.CMD_OPTION_USER_SHORT);
+        String passWord = cmd.getOptionValue(DseOpscS3RestoreUtils.CMD_OPTION_PWD_SHORT);
 
 
         /**
@@ -1016,7 +1216,74 @@ public class DseOpscS3Restore {
 
         CONFIGPROP = DseOpscS3RestoreUtils.LoadConfigFile(cfgFilePath);
         if (CONFIGPROP == null) {
-            System.exit(-50);
+            usageAndExit(100);
+        }
+
+        // Check whether "use_ssl" config file parameter is true (default false).
+        // - If so, java system properties "-Djavax.net.ssl.trustStore" and "-Djavax.net.ssl.trustStorePassword" must be set.
+        boolean useSsl = false;
+        String useSslStr = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_USE_SSL);
+        if ( (useSslStr != null) && !(useSslStr.isEmpty()) ) {
+            useSsl = Boolean.parseBoolean(useSslStr);
+        }
+
+        if (useSsl) {
+            String trustStoreProp = System.getProperty(DseOpscS3RestoreUtils.JAVA_SSL_TRUSTSTORE_PROP);
+            String trustStorePassProp = System.getProperty(DseOpscS3RestoreUtils.JAVA_SSL_TRUSTSTORE_PASS_PROP);
+
+            if ( (trustStoreProp == null) || trustStoreProp.isEmpty() ||
+                (trustStorePassProp == null) || trustStorePassProp.isEmpty()) {
+                System.out.format("\nERROR: Must provide SSL system properties (-D%s and -D%s) when " +
+                        "configuration file parameter \"%s\" is set true!\n",
+                    DseOpscS3RestoreUtils.JAVA_SSL_TRUSTSTORE_PROP,
+                    DseOpscS3RestoreUtils.JAVA_SSL_TRUSTSTORE_PASS_PROP,
+                    DseOpscS3RestoreUtils.CFG_KEY_USE_SSL);
+                usageAndExit(104);
+            }
+        }
+
+        // Check whether "user_auth" config file parameter is true (default false).
+        // - If so, command line parameter "-u (--user)" and "-p (--password)" must be set.
+        boolean userAuth = false;
+        String userAuthStr = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_USE_SSL);
+        if ( (userAuthStr != null) && !(userAuthStr.isEmpty()) ) {
+            userAuth = Boolean.parseBoolean(useSslStr);
+        }
+
+        if (userAuth) {
+            if ( (userName == null) || userName.isEmpty() ||
+                (passWord == null) || passWord.isEmpty() ) {
+                System.out.println("\nERROR: Must provide user name and password when configuration file parameter \"" +
+                    DseOpscS3RestoreUtils.CFG_KEY_USER_AUTH + "\" is set true!");
+                usageAndExit(105);
+            }
+        }
+
+        // Check whether "file_size_mon" config file parameter is true (default false).
+        boolean fileSizeChk = false;
+        String fileSizeMonStr = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_FILE_SIZE_CHK);
+        if ( (fileSizeMonStr != null) && !(fileSizeMonStr.isEmpty()) ) {
+            fileSizeChk = Boolean.parseBoolean(fileSizeMonStr);
+        }
+
+        /**
+         * If the specified download home directory already exists,
+         *      check if it is reachable and write-able; otherwise, error-out.
+         *
+         * If the specified download home directory doesn't exist, do nothing here
+         */
+        Path localDownloadHomePath = Paths.get(CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_LOCAL_DOWNLOAD_HOME));
+        if ( Files.exists(localDownloadHomePath) &&
+            ( !Files.isDirectory(localDownloadHomePath)  ||
+                !( localDownloadHomePath.toFile().canRead() &&
+                    localDownloadHomePath.toFile().canWrite() &&
+                    localDownloadHomePath.toFile().canExecute()
+                )
+            )
+        )
+        {
+            System.out.println("\nERROR: [Config File] Specified local download directory is not correct (doesn't exist, non-directory, or no Read/Write privilege)!");
+            usageAndExit(120);
         }
 
         /**
@@ -1054,9 +1321,27 @@ public class DseOpscS3Restore {
          * Set up AWS S3 connection
          */
         AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
+            .withClientConfiguration(new ClientConfiguration().withProtocol(Protocol.HTTP))
             .withCredentials(new AWSStaticCredentialsProvider(credentials))
             .withRegion(CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_OPSC_S3_AWS_REGION))
             .build();
+
+
+        /**
+         * Check if S3 bucket is reachable! Otherwise, list files under it.
+         */
+        Path s3BucketName = Paths.get(CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_OPSC_S3_BUCKET_NAME));
+        /**
+         * Check access privilege of S3 bucket (needs to be able to read!)
+
+         if ( Files.notExists(nfsBackupHomePath) ||
+         !Files.isDirectory(nfsBackupHomePath)  ||
+         !(nfsBackupHomePath.toFile().canRead() && nfsBackupHomePath.toFile().canExecute()) ) {
+         System.out.println("\nERROR: [Config File] Specified S3 OpsCenter backup directory is not correct (doesn't exist, non-directory, or no READ privilege)!");
+         usageAndExit(110);
+         }
+         */
+
 
         /*
         // Test S3 connection - list all S3 buckets under the provided AWS account
@@ -1074,26 +1359,71 @@ public class DseOpscS3Restore {
         QueryOptions queryOptions = new QueryOptions();
         queryOptions.setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
 
-        DseCluster dseCluster = DseCluster.builder()
-            .addContactPoint(CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_CONTACT_POINT))
-            .withQueryOptions(queryOptions)
-            .build();
 
         // dseCluster.connect();    /* NO NEED for acutal connection */
-        Metadata dseClusterMetadata = dseCluster.getMetadata();
+        Metadata dseClusterMetadata = null;
+
+        // Do NOT check cluster metadata for "-l me:<dse_host_id>" option
+        boolean checkDseMetadata = listCluster || listDC || (listMe && ((myHostID == null) || myHostID.isEmpty()) );
+        if (checkDseMetadata) {
+
+            try {
+                DseCluster.Builder clusterBuilder = DseCluster.builder()
+                    .addContactPoint(CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_CONTACT_POINT))
+                    .withQueryOptions(queryOptions);
+
+
+                if (useSsl) {
+                    clusterBuilder.withSSL();
+                }
+
+                if (userAuth) {
+                    AuthProvider authProvider = new PlainTextAuthProvider(userName, passWord);
+                    clusterBuilder.withAuthProvider(authProvider);
+                }
+
+                DseCluster dseCluster = clusterBuilder.build();
+                dseClusterMetadata = dseCluster.getMetadata();
+            }
+            catch (NoHostAvailableException nhae) {
+                System.out.println("\nERROR: Failed to check DSE cluster metadata. " +
+                    "Please check DSE cluster status and/or connection requirements (e.g. SSL/TLS, username/password)!");
+                usageAndExit(120);
+            }
+            catch (Exception e) {
+                System.out.println("\nERROR: Unknown error when checking DSE cluster metadata!");
+                e.printStackTrace();
+                usageAndExit(125);
+            }
+        }
+
 
         // List Opsc S3 backup items for all Dse Cluster hosts
         if ( listCluster ) {
-            listS3ObjtForCluster(dseClusterMetadata, s3Client, keyspaceName, tableName, opscBackupTime_gmt);
+            listS3ObjtForCluster(
+                dseClusterMetadata,
+                fileSizeChk,
+                s3Client,
+                keyspaceName,
+                tableName,
+                opscBackupTime_gmt);
         }
-        // List Opsc S3 backup items for all hosts in a specified DC of the Dse cluster
+        // List OpsCenter backup SSTables for all hosts in a specified DC of the Dse cluster
         else if ( listDC ) {
-            listS3ObjForDC(dseClusterMetadata, s3Client, dcNameToList, keyspaceName, tableName, opscBackupTime_gmt);
+            listS3ObjForDC(
+                dseClusterMetadata,
+                fileSizeChk,
+                s3Client,
+                dcNameToList,
+                keyspaceName,
+                tableName,
+                opscBackupTime_gmt);
         }
         // List (and download) Opsc S3 backup items for myself (the host that runs this program)
         else if ( listMe ) {
             listDownloadS3ObjForMe(
                 dseClusterMetadata,
+                fileSizeChk,
                 s3Client,
                 downloadS3Obj,
                 downloadS3ObjThreadNum,
@@ -1101,7 +1431,8 @@ public class DseOpscS3Restore {
                 keyspaceName,
                 tableName,
                 opscBackupTime_gmt,
-                clearTargetDownDir);
+                clearTargetDownDir,
+                noTargetDirStruct );
         }
 
         if (s3Client != null) {
