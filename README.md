@@ -27,24 +27,17 @@ The second step of this approach is very straightforward. But when it comes to t
 
 **[Fast S3 Backup Data Download Utility]**
 
-1. Download the most recent release (version 2.0) of .jar file from [here](https://github.com/yabinmeng/opscs3restore/releases/download/2.0/DseAWSRestore-2.0-SNAPSHOT.jar)
+1. Download the most recent release (version 3.0) of .jar file from [here](https://github.com/yabinmeng/opscs3restore/releases/download/3.0/opscs3restore-3.0-SNAPSHOT.jar)
 
 2. Download the example configuration file (opsc_s3_config.properties) from [here](https://github.com/yabinmeng/opscs3restore/blob/master/src/main/resources/opsc_s3_config.properties)
-
-   The example configuration file includes 4 items to configure. These items are quite straightforward and self-explanatory. Please update accordingly to your use case!
-```
-dse_contact_point: 127.0.0.1
-local_download_home: ./s3_download_test
-opsc_s3_aws_region: us-east-1
-opsc_s3_bucket_name: ymeng-dse-s3-test
-```
-**NOTE**: Please make sure correct AWS region and S3 bucket name are entered in this conifguration file!
 
 3. Run the program, providing the proper java options and arguments.
 ```
 java 
   [-Daws.accessKeyId=<your_aws_access_key>] 
-  [-Daws.secretKey=<your_aws_secret_key>] 
+  [-Daws.secretKey=<your_aws_secret_key>]
+  [-Djavax.net.ssl.trustStore=<client_truststore>] 
+  [-Djavax.net.ssl.trustStorePassword=<client_truststore_password>]
   -jar ./DseAWSRestore-2.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
   -l <all|DC:"<DC_name>"|>me[:"<dsenode_host_id_string>"]> 
   -c <opsc_s3_configure.properties_full_path> 
@@ -53,6 +46,9 @@ java
   [-t <table_name>] 
   -obt <opscenter_backup_time> 
   [-cls <true|false>]
+  [-nds <true|false>]
+  [-u <cassandra_user_name>]
+  [-p <cassandra_user_password>]
 ```
 
 The program needs a few Java options and parameters to work properly:
@@ -77,12 +73,22 @@ The program needs a few Java options and parameters to work properly:
         <tr>
             <td> -Daws.secretKey=&lt; your_aws_secret_key &gt; </td>
         </tr>
+        <tr>           
+            <td> -Djavax.net.ssl.trustStore </td>
+            <td> SSL/TLS client truststore file path (when DSE client-to-node SSL/TLS is enabled) </td>
+            <td> No </td>
+        </tr>
+        <tr>           
+            <td> -Djavax.net.ssl.trustStorePassword </td>
+            <td> SSL/TLS client truststore password (when DSE client-to-node SSL/TLS is enabled) </td>
+            <td> No </td>
+        </tr>
         <tr> 
             <td> -l &lt; all | DC:"&lt;DC_name&gt;" | me[:"&lt;dsenode_host_id_string&gt;"] </td>
-            <td> List S3 backup items on the commandline output: <br/>
-                <li> all -- list the S3 backup items for all nodes in the cluster </li>
-                <li> DC:"&lt;DC_name&gt;" -- list the S3 backup items of all nodes in a specified DC </li>
-                <li> me[:"&lt;dsenode_host_id_string&gt;"] -- list the S3 bckup item just for 
+            <td> List OpsCenter backup SSTables on the commandline output: <br/>
+                <li> all -- list OpsCenter backup SSTables for all nodes in the cluster </li>
+                <li> DC:"&lt;DC_name&gt;" -- list OpsCenter backup SSTables of all nodes in a specified DC </li>
+                <li> me[:"&lt;dsenode_host_id_string&gt;"] -- list OpsCenter backup SSTables just for 
                    <ul> 
                       <li> myself (the node that runs this program - IP matching) </li> 
                       <li> for any DSE node with its host ID provided as second parameter for this option. </li>
@@ -91,43 +97,60 @@ The program needs a few Java options and parameters to work properly:
              <td> Yes </td>
         </tr>
         <tr>
-            <td> -c &lt; opsc_s3_configure.properties_full_paht &gt; </td>
-            <td> The full file path of "opsc_s3_configure.properties" file. </td>
+            <td> -c &lt; opsc_nfs_configure.properties_full_paht &gt; </td>
+            <td> The full file path of "opsc_nfs_configure.properties" file. </td>
             <td> Yes </td>
         </tr>
         <tr>
             <td> -d &lt;max_concurrent_downloading_thread_num &gt; </td>
             <td> 
                 <li> <b>ONLY works with "-l me" option; which means "-l all" and "-l DC" options are just for display purpose</b> </li>
-                <li> &lt; concurrent_downloading_thread_num &gt; represents the number of threads (default 5 if not specified) that can concurrently download S3 backup sstable sets. </li>
-           </td>
-           <td> No </td>
+                <li> &lt; concurrent_downloading_thread_num &gt; represents the number of threads (default 5 if not specified) that can concurrently download OpsCenter backup sstable sets. </li>
+            </td>
+            <td> No </td>
         </tr>
         <tr>
-           <td> -k &lt;keyspace_name&gt; </td>
-           <td> Download all OpsCenter S3 backup SSTables that belong to the specified keyspace. </td>
-           <td> Yes </td>
+            <td> -k &lt;keyspace_name&gt; </td>
+            <td> Download all OpsCenter backup SSTables that belong to the specified keyspace. </td>
+            <td> Yes </td>
         </tr>
         <tr>
-           <td> -t &lt;table_name&gt; </td>
-           <td> <li> Download all OpsCenter S3 backup SSTables that belong to the specified table. </li> 
+            <td> -t &lt;table_name&gt; </td>
+            <td> <li> Download all OpsCenter backup SSTables that belong to the specified table. </li> 
                 <li> When not specified, all Cassandra tables under the specified keyspace will be downloaded. </li>
-           </td>
-           <td> No </td>
-         </tr>
-         <tr>
-           <td> -obt &lt;opsCenter_backup_time&gt; </td>
-            <td> OpsCenter backup time (must be in format <b>M/d/yyyy h:m a</b>) </li>
-           </td>
-           <td> Yes </td>
-         </tr>
-         <tr>
-           <td> -cls &lt;true|false&gt; </td>
-           <td> Whether to clear target download directory (default: false)
-                When not specified, all Cassandra tables under the specified keyspace will be downloaded.
-           </td>
-           <td> No </td>
-         </tr>
+            </td>
+            <td> No </td>
+        </tr>
+        <tr>
+            <td> -obt &lt;opsCenter_backup_time&gt; </td>
+            <td> OpsCenter backup time (must be in format <b>M/d/yyyy h:mm a</b>) </li>
+            </td>
+            <td> Yes </td>
+        </tr>
+        <tr>
+            <td> -cls &lt;true|false&gt; </td>
+            <td> Whether to clear local download home directory before downloading (default: false)
+            </td>
+            <td> No </td>
+        </tr>
+        <tr>
+            <td> -nds &lt;true|false&gt; </td>
+            <td> Whether NOT to maitain backup location folder structure in the local download directory (default: false)
+                <li> <b>ONLY applicable when "-t" option is specified.</b> </li> 
+                <li> When NOT specified or NO "-t" option is specified, backup location folder structure is always maintained under the local download directory. This is to avoid possible SSTable name conflicts among different keyspaces and/or tables.</li>
+            </td>
+            <td> No </td>
+        </tr>
+        <tr>
+            <td> -u &lt;cassandra_user_name&gt; </td>
+            <td> Cassandra user name (when DSE authentication is enabled) </td>
+            <td> No </td>
+        </tr>
+        <tr>
+            <td> -p &lt;cassandra_user_password&gt; </td>
+            <td> Cassandra user name (when DSE authentication is enabled) </td>
+            <td> No </td>
+        </tr>
     </tbody>
 </table>
 </br>
