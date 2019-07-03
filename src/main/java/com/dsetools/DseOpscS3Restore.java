@@ -162,6 +162,7 @@ class S3ObjDownloadRunnable implements  Runnable {
 public class DseOpscS3Restore {
 
     private static Properties CONFIGPROP = null;
+    private static boolean debugOpt = false;
 
     /**
      * Get the full file path of the "backup.json" file that corresponds
@@ -192,16 +193,39 @@ public class DseOpscS3Restore {
         List<S3ObjectSummary>  s3ObjectSummaries = objectListing.getObjectSummaries();
 
         S3ObjectSummary backupJsonS3ObjeSummary = null;
-        for (S3ObjectSummary objectSummary : s3ObjectSummaries) {
 
+        if (debugOpt) {
+            System.out.println("    [DEBUG] getMyBackupJson() START ");
+            System.out.println("    [DEBUG]    opscBckupTimeGmtStr: " + opscBckupTimeGmtStr );
+        }
+
+        for (S3ObjectSummary objectSummary : s3ObjectSummaries) {
             String opscObjName = objectSummary.getKey();
+
+            // snapshots/<host_id>/opscenter_<schedule_time_uuid_string>_yyyy-MM-dd-HH-mm-ss-UTC/backup.json
+            // snapshots/<host_id>/opscenter_adhoc_yyyy-MM-dd-HH-mm-ss-UTC/backup.json
+            int startOfTimeStampPos =
+                opscObjName.length()
+                    - DseOpscS3RestoreUtils.OPSC_BKUP_METADATA_FILE.length()  // "backup.json"
+                    - 1     // "/"
+                    - 23;   // "yyyy-MM-dd-HH-mm-ss-UTC"
+
             String backupTimeShortZeroSecondStr =
-                opscObjName.substring(opscPrefixString.length(), opscPrefixString.length() + 16) + "-00-UTC";
+                opscObjName.substring(startOfTimeStampPos, startOfTimeStampPos + 16) + "-00-UTC";
+
+            if (debugOpt) {
+                System.out.println("    [DEBUG]    opscObjName (backupTimeShortZeroSecondStr): " +
+                    opscObjName + "(" + backupTimeShortZeroSecondStr + ")");
+            }
 
             if (opscBckupTimeGmtStr.equalsIgnoreCase(backupTimeShortZeroSecondStr)) {
                 backupJsonS3ObjeSummary = objectSummary;
                 break;
             }
+        }
+
+        if (debugOpt) {
+            System.out.println("    [DEBUG] getMyBackupJson() END ");
         }
 
         return backupJsonS3ObjeSummary;
@@ -1202,6 +1226,11 @@ public class DseOpscS3Restore {
         // "-u" and "-p" option is optional.
         String userName = cmd.getOptionValue(DseOpscS3RestoreUtils.CMD_OPTION_USER_SHORT);
         String passWord = cmd.getOptionValue(DseOpscS3RestoreUtils.CMD_OPTION_PWD_SHORT);
+
+        // "-dbg" option is optional (default: false)
+        if ( cmd.hasOption(DseOpscS3RestoreUtils.CMD_OPTION_DEBUG_SHORT) ) {
+            debugOpt = true;
+        }
 
 
         /**
