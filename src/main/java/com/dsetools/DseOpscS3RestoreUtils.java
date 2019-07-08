@@ -16,6 +16,7 @@ public class DseOpscS3RestoreUtils {
     static String CFG_KEY_USE_SSL = "use_ssl";
     static String CFG_KEY_USER_AUTH = "user_auth";
     static String CFG_KEY_FILE_SIZE_CHK = "file_size_chk";
+    static String CFG_KEY_FILE_DSE_48 = "DSE_48";
 
     static String JAVA_SSL_TRUSTSTORE_PROP = "javax.net.ssl.trustStore";
     static String JAVA_SSL_TRUSTSTORE_PASS_PROP = "javax.net.ssl.trustStorePassword";

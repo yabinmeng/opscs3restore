@@ -50,6 +50,7 @@ class S3ObjDownloadRunnable implements  Runnable {
     private String[] tableNames;
     private String[] sstableVersions;
     private boolean noTargetDirStruct;
+    private boolean dse48ver;
 
     private DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -63,7 +64,8 @@ class S3ObjDownloadRunnable implements  Runnable {
                            String[] ks_names,
                            String[] tbl_names,
                            String[] sstable_versions,
-                           boolean no_dir_struct) {
+                           boolean no_dir_struct,
+                           boolean dse48) {
         assert (tID > 0);
         assert (transferManager != null);
 
@@ -78,6 +80,7 @@ class S3ObjDownloadRunnable implements  Runnable {
         this.tableNames = tbl_names;
         this.sstableVersions = sstable_versions;
         this.noTargetDirStruct = no_dir_struct;
+        this.dse48ver = dse48;
 
         System.out.format("  Creating thread with ID %d (%d).\n", threadID, s3ObjNames.length);
     }
@@ -102,6 +105,11 @@ class S3ObjDownloadRunnable implements  Runnable {
 
                 String parentPathStr = tmp.substring(0, lastPathSeperatorPos);
                 parentPathStr = parentPathStr.substring(parentPathStr.indexOf(DseOpscS3RestoreUtils.OPSC_OBJKEY_BASESTR));
+
+                // For DSE 4.8 version, the atual SSTable file name starts with "<keyspace_name>-<table_name>-"
+                if (dse48ver) {
+                    realSStableName = keyspaceNames[i] + "-" + tableNames[i] + "-" + realSStableName;
+                }
 
                 File localFile = new File(downloadHomeDir + "/" +
                     ( noTargetDirStruct ? "" :
@@ -565,6 +573,13 @@ public class DseOpscS3Restore {
         }
 
 
+        boolean dse48 = false;
+        String dse48Str = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_FILE_DSE_48);
+        if ( (dse48Str != null) && !(dse48Str.isEmpty()) ) {
+            dse48 = Boolean.parseBoolean(dse48Str);
+        }
+
+
         // Download SSTable S3 object items
         int numSstableBkupItems = 0;
 
@@ -642,7 +657,8 @@ public class DseOpscS3Restore {
                             s3SstableKSNames,
                             s3SstableTBLNames,
                             s3SstableVersions,
-                            noTargetDirStruct);
+                            noTargetDirStruct,
+                            dse48);
 
                         threadId++;
 
@@ -672,7 +688,8 @@ public class DseOpscS3Restore {
                 s3SstableKSNames,
                 s3SstableTBLNames,
                 s3SstableVersions,
-                noTargetDirStruct);
+                noTargetDirStruct,
+                dse48);
 
             executor.execute(worker);
         }
