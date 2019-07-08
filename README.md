@@ -38,7 +38,7 @@ java
   [-Daws.secretKey=<your_aws_secret_key>]
   [-Djavax.net.ssl.trustStore=<client_truststore>] 
   [-Djavax.net.ssl.trustStorePassword=<client_truststore_password>]
-  -jar ./DseAWSRestore-2.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
+  -jar ./opscs3restore-3.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
   -l <all|DC:"<DC_name>"|>me[:"<dsenode_host_id_string>"]> 
   -c <opsc_s3_configure.properties_full_path> 
   -d <concurrent_downloading_thread_num> 
@@ -266,7 +266,7 @@ The "-cls <true|false>" option controls whether to clear the local download dire
 java 
   -Daws.accessKeyId=<aws_accesskey_id> 
   -Daws.secretKey=<aws_secret_key> 
-  -jar ./DseAWSRestore-2.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
+  -jar ./opscs3restore-3.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
   -c ./opsc_s3_config.properties
   -l all 
   -k testks 
@@ -279,7 +279,7 @@ java
 java 
   -Daws.accessKeyId=<aws_accesskey_id> 
   -Daws.secretKey=<aws_secret_key> 
-  -jar ./DseAWSRestore-2.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
+  -jar ./opscs3restore-3.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
   -c ./opsc_s3_config.properties
   -l me
   -k testks1 
@@ -291,7 +291,7 @@ java
 java 
   -Daws.accessKeyId=<aws_accesskey_id> 
   -Daws.secretKey=<aws_secret_key> 
-  -jar ./DseAWSRestore-2.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
+  -jar ./opscs3restore-3.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
   -c ./opsc_s3_config.properties 
   -l me:"10409aec-241c-4a79-a707-2d3e4951dbf6" 
   -d 5
