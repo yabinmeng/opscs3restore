@@ -161,17 +161,22 @@ The utility configuration file includes several items to configure.
 ```
 dse_contact_point: <DSE_cluster_contact_point>
 local_download_home: <DSE_node_local_download_home_directory>
-nfs_backup_home: <absolute_path_of_NFS_backup_location>
+opsc_s3_aws_region: <AWS_S3_region_name>
+opsc_s3_bucket_name: <AWS_S3_bucket_name>
 ip_matching_nic: <NIC_name_for_IP_matching>
 use_ssl: <true | false>
-user_auth: <true | false>
+use_auth: <true | false>
 file_size_chk: <true | false>
 ```
 Most of these items are straightforward and I'll explain some of them a little bit more.
 
 * "dse_contact_point": When the utility needs to check DSE cluster metadata [-l ALL, -l DC:<DC_name>, -l me (no specific "dsenode_host_id_string")], it has to connecto to the DSE cluster in order to get the information. For these cases, an actively running DSE node IP should be provided here.
 
-* "local_download_home" and "nfs_backup_home": Please make sure using the absolute path for both the NFS backup location and the local download home directory! The Linux user that runs this utility needs to have read privilege on the NFS backup location as well as both read and write privilege on the local download directory.
+* "local_download_home": Please make sure using the absolute path for the local download home directory! The Linux user that runs this utility needs to have read and write privilege on the local download directory.
+
+* opsc_s3_aws_region": AWS S3 region name
+
+* opsc_s3_bucket_name: AWS S3 bucket name
 
 * "ip_matching_nic": When use -l me (no specific "dsenode_host_id_string") option, the utility automatically finds the correct DSE node host ID through IP matching. This parameter tells the utility which NIC name to use for IP matching. 
 
