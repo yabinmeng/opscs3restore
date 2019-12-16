@@ -1293,7 +1293,7 @@ public class DseOpscS3Restore {
         boolean userAuth = false;
         String userAuthStr = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_USE_SSL);
         if ( (userAuthStr != null) && !(userAuthStr.isEmpty()) ) {
-            userAuth = Boolean.parseBoolean(useSslStr);
+            userAuth = Boolean.parseBoolean(userAuthStr);
         }
 
         if (userAuth) {
