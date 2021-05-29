@@ -43,6 +43,7 @@ class S3ObjDownloadRunnable implements  Runnable {
     private TransferManager s3TransferManager;
     private boolean fileSizeChk;
     private String s3BuketName;
+    private String s3BucketPrefix;
     private String downloadHomeDir;
     private String[] s3ObjNames;
     private long[] s3ObjSizes;
@@ -58,6 +59,7 @@ class S3ObjDownloadRunnable implements  Runnable {
                            TransferManager transferManager,
                            boolean file_size_chk,
                            String s3bkt_name,
+                           String s3bkt_prefix,
                            String download_dir,
                            String[] object_names,
                            long[] object_sizes,
@@ -73,6 +75,7 @@ class S3ObjDownloadRunnable implements  Runnable {
         this.s3TransferManager = transferManager;
         this.fileSizeChk = file_size_chk;
         this.s3BuketName = s3bkt_name;
+        this.s3BucketPrefix = s3bkt_prefix;
         this.downloadHomeDir = download_dir;
         this.s3ObjNames = object_names;
         this.s3ObjSizes = object_sizes;
@@ -104,7 +107,7 @@ class S3ObjDownloadRunnable implements  Runnable {
                 int lastPathSeperatorPos = tmp.lastIndexOf('/');
 
                 String parentPathStr = tmp.substring(0, lastPathSeperatorPos);
-                parentPathStr = parentPathStr.substring(parentPathStr.indexOf(DseOpscS3RestoreUtils.OPSC_OBJKEY_BASESTR));
+                parentPathStr = parentPathStr.substring(parentPathStr.indexOf(DseOpscS3Restore.baseStr(s3BucketPrefix)));
 
                 // For DSE 4.8 version, the atual SSTable file name starts with "<keyspace_name>-<table_name>-"
                 if (dse48ver) {
@@ -172,6 +175,17 @@ public class DseOpscS3Restore {
     private static Properties CONFIGPROP = null;
     private static boolean debugOpt = false;
 
+    static String baseStr(String bktPrefix) {
+      if (bktPrefix == null || bktPrefix.isEmpty())
+        return DseOpscS3RestoreUtils.OPSC_OBJKEY_BASESTR;
+      
+      return bktPrefix + "/" + DseOpscS3RestoreUtils.OPSC_OBJKEY_BASESTR;
+    }
+
+    static String ssTablesPath(String bktPrefix, String hostId) {
+      return baseStr(bktPrefix) + "/" + hostId + "/" + DseOpscS3RestoreUtils.OPSC_OBJKEY_SSTABLES_MARKER_STR;
+    }
+
     /**
      * Get the full file path of the "backup.json" file that corresponds
      * to the specified DSE Host ID and OpsCenter backup time
@@ -189,7 +203,8 @@ public class DseOpscS3Restore {
         String opscBckupTimeGmtStr = opscBckupTimeGmt.format(opscObjTimeFormatter);
 
         String bktName = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_OPSC_S3_BUCKET_NAME);
-        String basePrefix = DseOpscS3RestoreUtils.OPSC_OBJKEY_BASESTR + "/" + hostId;
+        String bktPrefix = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_S3_PREFIX);
+        String basePrefix = baseStr(bktPrefix) + "/" + hostId;
         String opscPrefixString = basePrefix + "/" +
             DseOpscS3RestoreUtils.OPSC_OBJKEY_OPSC_MARKER_STR + "_";
 
@@ -485,7 +500,7 @@ public class DseOpscS3Restore {
             " OpsCenter S3 backup items for specified host (%s) ...\n", hostId);
 
         String downloadHomeDir = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_LOCAL_DOWNLOAD_HOME);
-
+        
         if (download) {
             assert (threadNum > 0);
 
@@ -514,6 +529,7 @@ public class DseOpscS3Restore {
             TransferManagerBuilder.standard().withS3Client(s3Client).build();
 
         String bktName = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_OPSC_S3_BUCKET_NAME);
+        String bktPrefix = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_S3_PREFIX);
 
         Map<String, String> opscUniquifierToKsTbls = new HashMap<String, String>();
 
@@ -606,11 +622,8 @@ public class DseOpscS3Restore {
         int i = 0;
         int threadId = 0;
 
-        String sstablePrefixString =
-            DseOpscS3RestoreUtils.OPSC_OBJKEY_BASESTR + "/" +
-                hostId + "/" +
-                DseOpscS3RestoreUtils.OPSC_OBJKEY_SSTABLES_MARKER_STR;
-
+        
+        String sstablePrefixString = ssTablesPath(bktPrefix, hostId);
 
         for ( String sstableObjName : opscUniquifierToKsTbls.keySet() )  {
 
@@ -651,6 +664,7 @@ public class DseOpscS3Restore {
                             transferManager,
                             fileSizeChk,
                             bktName,
+                            bktPrefix,
                             downloadHomeDir,
                             s3SstableObjKeyNames,
                             s3SstableObjKeySizes,
@@ -682,6 +696,7 @@ public class DseOpscS3Restore {
                 transferManager,
                 fileSizeChk,
                 bktName,
+                bktPrefix,
                 downloadHomeDir,
                 s3SstableObjKeyNames,
                 s3SstableObjKeySizes,
@@ -897,12 +912,9 @@ public class DseOpscS3Restore {
 
 
                 // Second, check SSTables records matching the backup time, keyspace, and table
-
-                String sstablePrefixString =
-                    CONFIGPROP.get(DseOpscS3RestoreUtils.CFG_KEY_OPSC_S3_BUCKET_NAME) + "/" +
-                        DseOpscS3RestoreUtils.OPSC_OBJKEY_BASESTR + "/" +
-                        host_id + "/" +
-                        DseOpscS3RestoreUtils.OPSC_OBJKEY_SSTABLES_MARKER_STR;
+                String s3Bucket = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_OPSC_S3_BUCKET_NAME);
+                String s3Prefix = CONFIGPROP.getProperty(DseOpscS3RestoreUtils.CFG_KEY_S3_PREFIX);
+                String sstablePrefixString = s3Bucket + "/" + ssTablesPath(s3Prefix, host_id);
 
                 for ( String sstableObjName : opscUniquifierToKsTbls.keySet() )  {
 
