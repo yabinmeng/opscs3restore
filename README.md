@@ -27,7 +27,7 @@ The second step of this approach is very straightforward. But when it comes to t
 
 **[Fast S3 Backup Data Download Utility]**
 
-1. Download the most recent release (version 3.0) of .jar file from [here](https://github.com/yabinmeng/opscs3restore/releases/download/3.0/opscs3restore-3.0-SNAPSHOT.jar)
+1. Download the most recent release (version 3.1) of .jar file from [here](https://github.com/yabinmeng/opscs3restore/releases/download/3.1/opscs3restore-3.1-SNAPSHOT.jar)
 
 2. Download the example configuration file (opsc_s3_config.properties) from [here](https://github.com/yabinmeng/opscs3restore/blob/master/src/main/resources/opsc_s3_config.properties)
 
@@ -38,7 +38,7 @@ java
   [-Daws.secretKey=<your_aws_secret_key>]
   [-Djavax.net.ssl.trustStore=<client_truststore>] 
   [-Djavax.net.ssl.trustStorePassword=<client_truststore_password>]
-  -jar ./opscs3restore-3.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
+  -jar ./opscs3restore-3.1-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
   -l <all|DC:"<DC_name>"|>me[:"<dsenode_host_id_string>"]> 
   -c <opsc_s3_configure.properties_full_path> 
   -d <concurrent_downloading_thread_num> 
@@ -167,6 +167,7 @@ ip_matching_nic: <NIC_name_for_IP_matching>
 use_ssl: <true | false>
 use_auth: <true | false>
 file_size_chk: <true | false>
+s3_prefix: <S3_prefix>
 ```
 Most of these items are straightforward and I'll explain some of them a little bit more.
 
@@ -185,6 +186,8 @@ Most of these items are straightforward and I'll explain some of them a little b
 * "user_auth" is ONLY relevant when DSE authentication is enabled. When true, "-u <cassandra_user_name>" and "-p <cassandra_user_password>" options must be provided.
 
 * "file_size_chk": Whether to bypass backup file size check during the download. When setting to false (default), the utility doesn't check and display file size for each to-be-restored backup files. This can be beneficial for overall performance.
+
+* `s3_prefix`: Typically, scheduled backups with an S3 destination are not configured in Opscenter with a prefix, so that snapshots are located at `s3://my-backup-bucket/snapshots`. If your configuration includes a prefix, configuring this parameter allows you to access snapshots located at a non-standard prefix. For example, configure `some-prefix` here to download snapshots from `s3://my-backup-bucket/some-prefix/snapshots`
 
 ## 2.3. Filter OpsCenter S3 backup SSTables by keyspace, table, and backup_time
 
@@ -271,7 +274,7 @@ The "-cls <true|false>" option controls whether to clear the local download dire
 java 
   -Daws.accessKeyId=<aws_accesskey_id> 
   -Daws.secretKey=<aws_secret_key> 
-  -jar ./opscs3restore-3.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
+  -jar ./opscs3restore-3.1-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
   -c ./opsc_s3_config.properties
   -l all 
   -k testks 
@@ -284,7 +287,7 @@ java
 java 
   -Daws.accessKeyId=<aws_accesskey_id> 
   -Daws.secretKey=<aws_secret_key> 
-  -jar ./opscs3restore-3.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
+  -jar ./opscs3restore-3.1-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
   -c ./opsc_s3_config.properties
   -l me
   -k testks1 
@@ -296,7 +299,7 @@ java
 java 
   -Daws.accessKeyId=<aws_accesskey_id> 
   -Daws.secretKey=<aws_secret_key> 
-  -jar ./opscs3restore-3.0-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
+  -jar ./opscs3restore-3.1-SNAPSHOT.jar com.dsetools.DseOpscS3Restore 
   -c ./opsc_s3_config.properties 
   -l me:"10409aec-241c-4a79-a707-2d3e4951dbf6" 
   -d 5
@@ -357,4 +360,12 @@ List and download OpsCenter S3 backup items for specified host (10409aec-241c-4a
      [Thread 0] download of "snapshots/10409aec-241c-4a79-a707-2d3e4951dbf6/sstables/830be0b989458a7cc65257332109d5fc-mc-1-big-Summary.db[keyspace: testks; table: singers]" completed
         >>> 92 of 92 bytes transferred (100.00%)
    - Existing Thread 0 at 2018-07-10 04:16:06 (duration: 1 seconds): 6 of 6 s3 objects downloaded, 0 failed.
+```
+
+# Building and contributing
+
+To build with Gradle 7.0.2, run
+
+```
+gradle shadowJar
 ```
