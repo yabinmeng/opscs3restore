@@ -208,21 +208,17 @@ public class DseOpscS3Restore {
         String opscPrefixString = basePrefix + "/" +
             DseOpscS3RestoreUtils.OPSC_OBJKEY_OPSC_MARKER_STR + "_";
 
-        ObjectListing objectListing = s3Client.listObjects(
-            new ListObjectsRequest()
-                .withBucketName(bktName)
-                .withPrefix(opscPrefixString));
-
-        List<S3ObjectSummary>  s3ObjectSummaries = objectListing.getObjectSummaries();
-
-        S3ObjectSummary backupJsonS3ObjeSummary = null;
+        ObjectListing objectListing = s3Client.listObjects(bktName, opscPrefixString);
 
         if (debugOpt) {
             System.out.println("    [DEBUG] getMyBackupJson() START ");
             System.out.println("    [DEBUG]    opscBckupTimeGmtStr: " + opscBckupTimeGmtStr );
         }
 
-        for (S3ObjectSummary objectSummary : s3ObjectSummaries) {
+        while(true) {
+          List<S3ObjectSummary> s3ObjectSummaries = objectListing.getObjectSummaries();
+
+          for (S3ObjectSummary objectSummary : s3ObjectSummaries) {
             String opscObjName = objectSummary.getKey();
 
             // snapshots/<host_id>/opscenter_<schedule_time_uuid_string>_yyyy-MM-dd-HH-mm-ss-UTC/backup.json
@@ -242,16 +238,24 @@ public class DseOpscS3Restore {
             }
 
             if (opscBckupTimeGmtStr.equalsIgnoreCase(backupTimeShortZeroSecondStr)) {
-                backupJsonS3ObjeSummary = objectSummary;
-                break;
+              if (debugOpt) {
+                System.out.println("    [DEBUG] getMyBackupJson() END ");
+              }
+              return objectSummary;
             }
-        }
+          }
 
-        if (debugOpt) {
-            System.out.println("    [DEBUG] getMyBackupJson() END ");
+          if (objectListing.isTruncated()) {
+            objectListing = s3Client.listNextBatchOfObjects(objectListing);
+          }
+          else {
+            if (debugOpt) {
+              System.out.println("    [DEBUG] getMyBackupJson() END ");
+            }
+  
+            return null;
+          }
         }
-
-        return backupJsonS3ObjeSummary;
     }
 
 
