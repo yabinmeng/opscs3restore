@@ -303,42 +303,15 @@ public class DseOpscS3Restore {
             Iterator iterator = jsonItemArr.iterator();
 
             while (iterator.hasNext()) {
-                String jsonItemContent = (String) ((JSONObject)iterator.next()).toJSONString();
-                jsonItemContent = jsonItemContent.substring(1, jsonItemContent.length() -1 );
+              JSONObject jsonSsTable = (JSONObject)iterator.next();
 
-                String[] keyValuePairs = jsonItemContent.split(",");
+              String ssTableName = (String)jsonSsTable.get("name");
+              String uniquifierStr = (String)jsonSsTable.get("uniquifier");
+              String keyspaceName = (String)jsonSsTable.get("keyspace");
+              String tableName = (String)jsonSsTable.get("cf");
+              String ssTableVersion = (String)jsonSsTable.get("version");
 
-                String ssTableName = "";
-                String uniquifierStr = "";
-                String keyspaceName = "";
-                String tableName = "";
-                String ssTableVersion = "";
-
-                for ( String keyValuePair :  keyValuePairs ) {
-                    String key = keyValuePair.split(":")[0];
-                    String value = keyValuePair.split(":")[1];
-
-                    key = key.substring(1, key.length() - 1 );
-                    value = value.substring(1, value.length() - 1);
-
-                    if ( key.equalsIgnoreCase("uniquifier") ) {
-                        uniquifierStr = value;
-                    }
-                    else if ( key.equalsIgnoreCase("version") ) {
-                        ssTableVersion = value;
-                    }
-                    else if ( key.equalsIgnoreCase("keyspace") ) {
-                        keyspaceName = value;
-                    }
-                    else if ( key.equalsIgnoreCase("cf") ) {
-                        tableName = value;
-                    }
-                    else if ( key.equalsIgnoreCase("name") ) {
-                        ssTableName = value;
-                    }
-                }
-
-                opscObjMaps.put(ssTableName, keyspaceName + ":" + tableName + ":" + uniquifierStr + ":" + ssTableVersion);
+              opscObjMaps.put(ssTableName, keyspaceName + ":" + tableName + ":" + uniquifierStr + ":" + ssTableVersion);
             }
         }
         catch (Exception e) {
